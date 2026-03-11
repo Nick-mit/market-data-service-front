@@ -37,6 +37,12 @@ const EXCHANGES = [
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
 
+const SYMBOLS = [
+  'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 
+  'ADAUSDT', 'AVAXUSDT', 'DOTUSDT', 'DOGEUSDT', 'LINKUSDT',
+  'MATICUSDT', 'UNIUSDT', 'LTCUSDT', 'BCHUSDT', 'NEARUSDT'
+];
+
 const INDICATORS = [
   { id: 'sma', name: 'SMA', type: 'overlay' },
   { id: 'ema', name: 'EMA', type: 'overlay' },
@@ -279,10 +285,23 @@ export default function App() {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[#2B2F36] rounded-lg border border-[#1F2226]">
-            <Globe className="w-4 h-4 text-[#848E9C]" />
-            <span className="text-sm font-medium text-white">{symbol}</span>
-            <ChevronDown className="w-4 h-4 text-[#848E9C]" />
+          <div className="relative group">
+            <button className="flex items-center gap-2 px-3 py-1.5 bg-[#2B2F36] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-colors">
+              <Globe className="w-4 h-4 text-[#848E9C]" />
+              <span className="text-sm font-medium text-white">{symbol}</span>
+              <ChevronDown className="w-4 h-4 text-[#848E9C]" />
+            </button>
+            <div className="absolute right-0 mt-2 w-48 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2 max-h-[300px] overflow-y-auto">
+              {SYMBOLS.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSymbol(s)}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-[#2B2F36] transition-colors ${symbol === s ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
           <button onClick={fetchData} className="p-2 hover:bg-[#2B2F36] rounded-lg transition-colors">
             <RefreshCw className={`w-5 h-5 text-[#848E9C] ${loading ? 'animate-spin' : ''}`} />
@@ -304,13 +323,19 @@ export default function App() {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-[#848E9C] mb-1 block">Symbol</label>
-                <input 
-                  type="text" 
-                  value={symbol} 
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  className="w-full bg-[#0B0E11] border border-[#1F2226] rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
-                />
+                <label className="text-xs text-[#848E9C] mb-1 block">Symbol Selection</label>
+                <div className="relative">
+                  <select 
+                    value={symbol} 
+                    onChange={(e) => setSymbol(e.target.value)}
+                    className="w-full bg-[#0B0E11] border border-[#1F2226] rounded-lg px-3 py-2 text-white appearance-none focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
+                  >
+                    {SYMBOLS.map(s => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#848E9C] pointer-events-none" />
+                </div>
               </div>
               <div>
                 <label className="text-xs text-[#848E9C] mb-1 block">Interval</label>
