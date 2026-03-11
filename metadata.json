@@ -1,0 +1,5 @@
+{
+  "name": "Crypto Technical Dashboard",
+  "description": "Multi-exchange K-line viewer with technical indicators (SMA, EMA, MACD, RSI, etc.)",
+  "requestFramePermissions": []
+}
