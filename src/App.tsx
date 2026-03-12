@@ -27,12 +27,12 @@ interface KLine {
 }
 
 const EXCHANGES = [
-  { id: 'binance', name: 'Binance', icon: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png' },
-  { id: 'kucoin', name: 'KuCoin', icon: 'https://cryptologos.cc/logos/kucoin-token-kcs-logo.png' },
+  { id: 'aster', name: 'Aster', icon: '' },
   { id: 'bitget', name: 'Bitget', icon: 'https://cryptologos.cc/logos/bitget-token-bgb-logo.png' },
+  { id: 'kucoin', name: 'KuCoin', icon: 'https://cryptologos.cc/logos/kucoin-token-kcs-logo.png' },
+  { id: 'weex', name: 'Weex', icon: '' },
   { id: 'hyperliquid', name: 'Hyperliquid', icon: 'https://hyperliquid.xyz/favicon.ico' },
-  { id: 'aster', name: 'Aster (Mock)', icon: '' },
-  { id: 'weex', name: 'Weex (Mock)', icon: '' },
+  { id: 'binance', name: 'Binance', icon: 'https://cryptologos.cc/logos/binance-coin-bnb-logo.png' },
 ];
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
@@ -403,20 +403,24 @@ export default function App() {
 
           {/* Exchange Selector */}
           <div className="flex items-center gap-3">
-            <div className="flex bg-[#0B0E11] rounded-lg p-1 border border-[#1F2226]">
-              {EXCHANGES.slice(0, 4).map(ex => (
-                <button
-                  key={ex.id}
-                  onClick={() => setExchange(ex.id)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    exchange === ex.id 
-                    ? 'bg-[#2B2F36] text-white shadow-sm' 
-                    : 'text-[#848E9C] hover:text-white'
-                  }`}
-                >
-                  {ex.name}
-                </button>
-              ))}
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-colors">
+                <span className="text-xs font-medium text-white">
+                  {EXCHANGES.find(ex => ex.id === exchange)?.name || exchange}
+                </span>
+                <ChevronDown className="w-3 h-3 text-[#848E9C]" />
+              </button>
+              <div className="absolute left-0 mt-2 w-40 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2">
+                {EXCHANGES.map(ex => (
+                  <button
+                    key={ex.id}
+                    onClick={() => setExchange(ex.id)}
+                    className={`w-full text-left px-4 py-2 text-xs hover:bg-[#2B2F36] transition-colors ${exchange === ex.id ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                  >
+                    {ex.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
