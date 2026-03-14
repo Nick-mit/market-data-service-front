@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as LightweightCharts from 'lightweight-charts';
+import axios from 'axios';
 import { 
   SMA, EMA, VWAP, BollingerBands, MACD, RSI, ADX, CCI, ATR, OBV 
 } from 'technicalindicators';
@@ -13,8 +14,20 @@ import {
   Activity,
   Zap,
   Globe,
-  Maximize2
+  Maximize2,
+  Info,
+  ArrowRight
 } from 'lucide-react';
+
+// Dashboard Components
+import FearGreedGauge from './components/dashboard/FearGreedGauge';
+import CapitalFlowChart from './components/dashboard/CapitalFlowChart';
+import CycleIndicatorCards from './components/dashboard/CycleIndicatorCards';
+import FundingRateHeatmap from './components/dashboard/FundingRateHeatmap';
+import LiquidationMap from './components/dashboard/LiquidationMap';
+import LargeOrdersTicker from './components/dashboard/LargeOrdersTicker';
+import LongShortRatioChart from './components/dashboard/LongShortRatioChart';
+import OrderbookHeatmap from './components/dashboard/OrderbookHeatmap';
 
 // --- Types ---
 interface KLine {
@@ -69,10 +82,68 @@ export default function App() {
 
   const [exchange, setExchange] = useState('binance');
   const [symbol, setSymbol] = useState('BTCUSDT');
-  const [interval, setInterval] = useState('1h');
+  const [klineInterval, setKLineInterval] = useState('1h');
   const [data, setData] = useState<KLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['sma', 'rsi']);
+
+  // Analytical Data State
+  const [fearGreed, setFearGreed] = useState<{ value: number; label: string } | null>(null);
+  const [capitalFlow, setCapitalFlow] = useState<any[]>([]);
+  const [cycleIndicators, setCycleIndicators] = useState<any[]>([]);
+  const [fundingHeatmap, setFundingHeatmap] = useState<any>(null);
+  const [oiData, setOiData] = useState<any[]>([]);
+  const [liquidationData, setLiquidationData] = useState<any[]>([]);
+  const [longShortData, setLongShortData] = useState<any[]>([]);
+  const [largeOrders, setLargeOrders] = useState<any[]>([]);
+  const [heatmapData, setHeatmapData] = useState<any[]>([]);
+
+  // --- Health Check ---
+  useEffect(() => {
+    axios.get('/health')
+      .then(r => console.log('Backend Health Check:', r.data))
+      .catch(e => console.error('Backend Health Check Failed:', e.message));
+  }, []);
+
+  // --- Analytical Data Fetching ---
+  const fetchAnalyticalData = async () => {
+    try {
+      const endpoints = [
+        '/api/v1/coinank/indicator/fear-greed',
+        '/api/v1/coinank/capital-flow/history',
+        '/api/v1/coinank/cycle-indicators',
+        '/api/v1/coinank/funding-rate/heatmap',
+        '/api/v1/coinank/open-interest/agg-kline',
+        '/api/v1/coinank/liquidation/agg-map',
+        '/api/v1/coinank/long-short/ratios',
+        '/api/v1/coinank/large-order/market',
+        '/api/v1/coinank/order-book/heatmap',
+      ];
+
+      const responses = await Promise.all(endpoints.map(url => axios.get(url)));
+      const [fg, cf, ci, fh, oi, liq, ls, lo, hm] = responses.map(r => r.data);
+
+      setFearGreed(fg);
+      setCapitalFlow(cf);
+      setCycleIndicators(ci);
+      setFundingHeatmap(fh);
+      setOiData(oi);
+      setLiquidationData(liq);
+      setLongShortData(ls);
+      setLargeOrders(lo);
+      setHeatmapData(hm);
+    } catch (e: any) {
+      console.error('Failed to fetch analytical data:', e.message || e, e.config?.url);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalyticalData();
+    const intervalId = setInterval(() => {
+      fetchAnalyticalData();
+    }, 30000); // Poll every 30s
+    return () => clearInterval(intervalId);
+  }, [symbol, exchange]);
 
   // --- Indicators Calculation ---
   const indicatorData = useMemo(() => {
@@ -133,21 +204,23 @@ export default function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/klines?exchange=${exchange}&symbol=${symbol}&interval=${interval}`);
-      const result = await response.json();
-      if (Array.isArray(result)) {
-        setData(result);
+      const response = await axios.get(`/api/klines`, {
+        params: { exchange, symbol, interval: klineInterval }
+      });
+      if (Array.isArray(response.data)) {
+        setData(response.data);
       }
     } catch (error: any) {
-      console.error('Fetch error:', error instanceof Error ? error.message : String(error));
+      console.error('Fetch error:', error.message || error);
     } finally {
       setLoading(false);
     }
   };
 
+
   useEffect(() => {
     fetchData();
-  }, [exchange, symbol, interval]);
+  }, [exchange, symbol, klineInterval]);
 
   // --- Chart Initialization ---
   useEffect(() => {
@@ -390,21 +463,23 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#0B0E11] text-[#D1D4DC] font-sans selection:bg-emerald-500/30">
       {/* Header */}
-      <header className="border-b border-[#1F2226] bg-[#161A1E] px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+      <header className="border-b border-[#1F2226] bg-[#161A1E] px-6 py-3 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.4)]">
               <TrendingUp className="text-black w-5 h-5" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-white">QuantView</h1>
+            <h1 className="text-xl font-bold tracking-tight text-white">QuantView <span className="text-[10px] font-normal text-[#848E9C] ml-1">PRO</span></h1>
           </div>
 
           <div className="h-6 w-px bg-[#1F2226]" />
 
-          {/* Exchange Selector */}
-          <div className="flex items-center gap-3">
+          {/* Global Filters */}
+          <div className="flex items-center gap-4">
+            {/* Exchange Selector */}
             <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-colors">
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
+                <span className="text-xs font-bold text-[#848E9C] uppercase">Exchange</span>
                 <span className="text-xs font-medium text-white">
                   {EXCHANGES.find(ex => ex.id === exchange)?.name || exchange}
                 </span>
@@ -422,30 +497,54 @@ export default function App() {
                 ))}
               </div>
             </div>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-4">
-          <div className="relative group">
-            <button className="flex items-center gap-2 px-3 py-1.5 bg-[#2B2F36] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-colors">
-              <Globe className="w-4 h-4 text-[#848E9C]" />
-              <span className="text-sm font-medium text-white">{symbol}</span>
-              <ChevronDown className="w-4 h-4 text-[#848E9C]" />
-            </button>
-            <div className="absolute right-0 mt-2 w-48 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2 max-h-[300px] overflow-y-auto">
-              {SYMBOLS.map(s => (
+            {/* Symbol Selector */}
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
+                <Globe className="w-3 h-3 text-blue-500" />
+                <span className="text-xs font-bold text-[#848E9C] uppercase">Asset</span>
+                <span className="text-xs font-medium text-white">{symbol}</span>
+                <ChevronDown className="w-3 h-3 text-[#848E9C]" />
+              </button>
+              <div className="absolute left-0 mt-2 w-48 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2 max-h-[300px] overflow-y-auto">
+                {SYMBOLS.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setSymbol(s)}
+                    className={`w-full text-left px-4 py-2 text-xs hover:bg-[#2B2F36] transition-colors ${symbol === s ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Interval Selector */}
+            <div className="flex bg-[#0B0E11] rounded-lg p-1 border border-[#1F2226]">
+              {INTERVALS.map(i => (
                 <button
-                  key={s}
-                  onClick={() => setSymbol(s)}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-[#2B2F36] transition-colors ${symbol === s ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                  key={i}
+                  onClick={() => setKLineInterval(i)}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                    klineInterval === i 
+                    ? 'bg-[#2B2F36] text-emerald-500 shadow-sm' 
+                    : 'text-[#848E9C] hover:text-white'
+                  }`}
                 >
-                  {s}
+                  {i}
                 </button>
               ))}
             </div>
           </div>
-          <button onClick={fetchData} className="p-2 hover:bg-[#2B2F36] rounded-lg transition-colors">
-            <RefreshCw className={`w-5 h-5 text-[#848E9C] ${loading ? 'animate-spin' : ''}`} />
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Live Market</span>
+          </div>
+          <button onClick={() => { fetchData(); fetchAnalyticalData(); }} className="p-2 hover:bg-[#2B2F36] rounded-lg transition-colors group">
+            <RefreshCw className={`w-5 h-5 text-[#848E9C] group-hover:text-white ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button className="p-2 hover:bg-[#2B2F36] rounded-lg transition-colors">
             <Settings className="w-5 h-5 text-[#848E9C]" />
@@ -453,158 +552,188 @@ export default function App() {
         </div>
       </header>
 
-      <main className="p-6 max-w-[1600px] mx-auto grid grid-cols-12 gap-6">
-        {/* Left Sidebar: Controls */}
-        <div className="col-span-12 lg:col-span-3 space-y-6">
-          {/* Market Info Card */}
-          <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-5 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-[#848E9C]">Market Info</h2>
-              <Activity className="w-4 h-4 text-emerald-500" />
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs text-[#848E9C] mb-1 block">Symbol Selection</label>
-                <div className="relative">
-                  <select 
-                    value={symbol} 
-                    onChange={(e) => setSymbol(e.target.value)}
-                    className="w-full bg-[#0B0E11] border border-[#1F2226] rounded-lg px-3 py-2 text-white appearance-none focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                  >
-                    {SYMBOLS.map(s => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#848E9C] pointer-events-none" />
-                </div>
+      <main className="p-6 max-w-[1800px] mx-auto space-y-6">
+        
+        {/* Module 1: Macro View */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white">Macro Market Sentiment</h2>
+          </div>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 lg:col-span-3 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Fear & Greed Index</h3>
+                <Info className="w-3 h-3 text-[#474D57]" />
               </div>
-              <div>
-                <label className="text-xs text-[#848E9C] mb-1 block">Interval</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {INTERVALS.map(i => (
+              {fearGreed && <FearGreedGauge value={fearGreed.value} />}
+            </div>
+            
+            <div className="col-span-12 lg:col-span-9 space-y-6">
+              <CycleIndicatorCards indicators={cycleIndicators} />
+              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Global Capital Flow vs BTC Price</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-[10px] text-[#848E9C]">Inflow</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                      <span className="text-[10px] text-[#848E9C]">Outflow</span>
+                    </div>
+                  </div>
+                </div>
+                <CapitalFlowChart data={capitalFlow} />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Module 2: Derivatives & Open Interest */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-4 bg-blue-500 rounded-full" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white">Derivatives & Open Interest</h2>
+          </div>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 lg:col-span-9 space-y-6">
+              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl overflow-hidden shadow-2xl relative">
+                <div className="absolute top-4 left-4 z-10 flex items-center gap-4 bg-[#161A1E]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#1F2226]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white">{exchange.toUpperCase()}</span>
+                    <span className="text-xs text-[#848E9C]">{symbol}</span>
+                    <span className="text-xs text-emerald-500">{klineInterval}</span>
+                  </div>
+                  <div className="h-3 w-px bg-[#1F2226]" />
+                  <div className="flex items-center gap-3">
+                    {activeIndicators.map(id => (
+                      <span key={id} className="text-[10px] uppercase font-bold text-blue-400">{id}</span>
+                    ))}
+                  </div>
+                </div>
+                
+                <div ref={chartContainerRef} className="w-full h-[500px]" />
+                
+                {/* Sub-Charts for Oscillators */}
+                <div className="flex flex-col border-t border-[#1F2226]">
+                  {INDICATORS.filter(ind => ind.type === 'oscillator' && activeIndicators.includes(ind.id)).map(osc => (
+                    <div key={osc.id} className="relative border-b border-[#1F2226] last:border-b-0">
+                      <div className="absolute top-2 left-4 z-10 bg-[#161A1E]/80 px-2 py-0.5 rounded text-[10px] font-bold text-[#848E9C] uppercase border border-[#1F2226]">
+                        {osc.name}
+                      </div>
+                      <div 
+                        ref={el => subChartContainersRef.current[osc.id] = el} 
+                        className="w-full h-[150px]" 
+                      />
+                    </div>
+                  ))}
+                </div>
+                
+                {loading && (
+                  <div className="absolute inset-0 bg-[#0B0E11]/50 backdrop-blur-sm flex items-center justify-center z-20">
+                    <div className="flex flex-col items-center gap-3">
+                      <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                      <span className="text-sm font-medium text-[#848E9C]">Syncing Market Data...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Funding Rate Heatmap (24H)</h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-red-500">Bullish Bias</span>
+                    <div className="w-20 h-2 bg-gradient-to-r from-emerald-500 to-red-500 rounded-full" />
+                    <span className="text-[10px] text-emerald-500">Bearish Bias</span>
+                  </div>
+                </div>
+                {fundingHeatmap && <FundingRateHeatmap data={fundingHeatmap} />}
+              </div>
+            </div>
+
+            <div className="col-span-12 lg:col-span-3 space-y-6">
+              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Liquidation Map</h3>
+                  <BarChart3 className="w-4 h-4 text-red-500" />
+                </div>
+                <LiquidationMap data={liquidationData} />
+              </div>
+
+              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Indicator Controls</h3>
+                  <Layers className="w-4 h-4 text-blue-500" />
+                </div>
+                <div className="space-y-2">
+                  {INDICATORS.map(ind => (
                     <button
-                      key={i}
-                      onClick={() => setInterval(i)}
-                      className={`py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                        interval === i 
-                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-500' 
-                        : 'bg-[#0B0E11] border-[#1F2226] text-[#848E9C] hover:border-[#474D57]'
+                      key={ind.id}
+                      onClick={() => toggleIndicator(ind.id)}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
+                        activeIndicators.includes(ind.id)
+                        ? 'bg-[#2B2F36] text-white'
+                        : 'text-[#848E9C] hover:bg-[#2B2F36]/50'
                       }`}
                     >
-                      {i}
+                      <span className="text-xs">{ind.name}</span>
+                      <div className={`w-2 h-2 rounded-full ${activeIndicators.includes(ind.id) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-[#474D57]'}`} />
                     </button>
                   ))}
                 </div>
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Indicators Card */}
-          <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-5 shadow-xl">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-[#848E9C]">Indicators</h2>
-              <Layers className="w-4 h-4 text-blue-500" />
-            </div>
-            <div className="space-y-2">
-              {INDICATORS.map(ind => (
-                <button
-                  key={ind.id}
-                  onClick={() => toggleIndicator(ind.id)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
-                    activeIndicators.includes(ind.id)
-                    ? 'bg-[#2B2F36] text-white'
-                    : 'text-[#848E9C] hover:bg-[#2B2F36]/50'
-                  }`}
-                >
-                  <span>{ind.name}</span>
-                  <div className={`w-2 h-2 rounded-full ${activeIndicators.includes(ind.id) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-[#474D57]'}`} />
-                </button>
-              ))}
-            </div>
+        {/* Module 3: Micro Structure */}
+        <section className="space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-1 h-4 bg-purple-500 rounded-full" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white">Micro Order Structure</h2>
           </div>
-        </div>
-
-          {/* Main Chart Area */}
-          <div className="col-span-12 lg:col-span-9 space-y-6">
-            <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl overflow-hidden shadow-2xl relative">
-              <div className="absolute top-4 left-4 z-10 flex items-center gap-4 bg-[#161A1E]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#1F2226]">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-white">{exchange.toUpperCase()}</span>
-                  <span className="text-xs text-[#848E9C]">{symbol}</span>
-                  <span className="text-xs text-emerald-500">{interval}</span>
-                </div>
-                <div className="h-3 w-px bg-[#1F2226]" />
-                <div className="flex items-center gap-3">
-                  {activeIndicators.map(id => (
-                    <span key={id} className="text-[10px] uppercase font-bold text-blue-400">{id}</span>
-                  ))}
-                </div>
+          <div className="grid grid-cols-12 gap-6">
+            <div className="col-span-12 lg:col-span-4 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Long/Short Ratio (Top vs Retail)</h3>
+                <Activity className="w-4 h-4 text-purple-500" />
               </div>
-              
-              <div ref={chartContainerRef} className="w-full h-[500px]" />
-              
-              {/* Sub-Charts for Oscillators */}
-              <div className="flex flex-col border-t border-[#1F2226]">
-                {INDICATORS.filter(ind => ind.type === 'oscillator' && activeIndicators.includes(ind.id)).map(osc => (
-                  <div key={osc.id} className="relative border-b border-[#1F2226] last:border-b-0">
-                    <div className="absolute top-2 left-4 z-10 bg-[#161A1E]/80 px-2 py-0.5 rounded text-[10px] font-bold text-[#848E9C] uppercase border border-[#1F2226]">
-                      {osc.name}
-                    </div>
-                    <div 
-                      ref={el => subChartContainersRef.current[osc.id] = el} 
-                      className="w-full h-[150px]" 
-                    />
-                  </div>
-                ))}
-              </div>
-              
-              {loading && (
-                <div className="absolute inset-0 bg-[#0B0E11]/50 backdrop-blur-sm flex items-center justify-center z-20">
-                  <div className="flex flex-col items-center gap-3">
-                    <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-                    <span className="text-sm font-medium text-[#848E9C]">Syncing Market Data...</span>
-                  </div>
-                </div>
-              )}
+              <LongShortRatioChart data={longShortData} />
             </div>
 
-            {/* Oscillator Statistics Panel (Removed in favor of sub-charts) */}
-
-            {/* Bottom Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <BarChart3 className="w-4 h-4 text-emerald-500" />
-                  <h3 className="text-xs font-bold uppercase text-[#848E9C]">Volume Analysis</h3>
-                </div>
-                <div className="flex items-end gap-2">
-                  <span className="text-2xl font-mono font-bold text-white">
-                    {data.length > 0 ? (data[data.length-1].volume).toLocaleString() : '0'}
-                  </span>
-                  <span className="text-xs text-[#848E9C] mb-1">24h Vol</span>
-                </div>
+            <div className="col-span-12 lg:col-span-5 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Orderbook Heatmap (Depth)</h3>
+                <Zap className="w-4 h-4 text-yellow-500" />
               </div>
+              <div className="w-full h-64 bg-[#0B0E11] rounded-xl relative overflow-hidden border border-[#1F2226]">
+                <OrderbookHeatmap data={heatmapData} />
+              </div>
+            </div>
 
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Globe className="w-4 h-4 text-blue-500" />
-                  <h3 className="text-xs font-bold uppercase text-[#848E9C]">Market Context</h3>
-                </div>
-                <div className="flex items-end gap-2">
-                  <span className="text-2xl font-mono font-bold text-white">
-                    {symbol}
-                  </span>
-                  <span className="text-xs text-[#848E9C] mb-1">Active Pair</span>
-                </div>
+            <div className="col-span-12 lg:col-span-3 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Large Order Ticker</h3>
+                <div className="px-2 py-0.5 bg-red-500/10 rounded text-[8px] font-bold text-red-500 uppercase">Whale Alert</div>
+              </div>
+              <div className="max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                <LargeOrdersTicker orders={largeOrders} />
               </div>
             </div>
           </div>
-        </main>
+        </section>
+      </main>
 
       {/* Footer */}
       <footer className="mt-12 border-t border-[#1F2226] bg-[#161A1E] px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-[#474D57]">
-          <span>System Status: <span className="text-emerald-500">Operational</span></span>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span>System: Operational</span>
+          </div>
           <div className="w-1 h-1 rounded-full bg-[#474D57]" />
           <span>API Latency: 42ms</span>
           <div className="w-1 h-1 rounded-full bg-[#474D57]" />
@@ -613,6 +742,8 @@ export default function App() {
         <div className="flex items-center gap-4">
           <button className="text-[10px] font-bold uppercase text-[#848E9C] hover:text-white transition-colors">Documentation</button>
           <button className="text-[10px] font-bold uppercase text-[#848E9C] hover:text-white transition-colors">API Keys</button>
+          <div className="h-4 w-px bg-[#1F2226]" />
+          <span className="text-[10px] text-[#474D57]">© 2026 QuantView Pro</span>
         </div>
       </footer>
     </div>
