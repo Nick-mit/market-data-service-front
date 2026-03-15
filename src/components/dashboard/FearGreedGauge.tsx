@@ -1,16 +1,20 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { translations, Language } from '../../translations';
 
 interface FearGreedGaugeProps {
   value: number;
+  language?: Language;
 }
 
-const FearGreedGauge: React.FC<FearGreedGaugeProps> = ({ value }) => {
+const FearGreedGauge: React.FC<FearGreedGaugeProps> = ({ value, language = 'en' }) => {
+  const t = translations[language];
+
   const data = [
-    { name: 'Fear', value: 25, color: '#ef5350' },
-    { name: 'Neutral', value: 25, color: '#ff9800' },
-    { name: 'Greed', value: 25, color: '#8bc34a' },
-    { name: 'Extreme Greed', value: 25, color: '#26a69a' },
+    { name: t.fear, value: 25, color: '#ef5350' },
+    { name: t.neutral, value: 25, color: '#ff9800' },
+    { name: t.greed, value: 25, color: '#8bc34a' },
+    { name: t.extremeGreed, value: 25, color: '#26a69a' },
   ];
 
   const needleData = [
@@ -65,7 +69,7 @@ const FearGreedGauge: React.FC<FearGreedGaugeProps> = ({ value }) => {
       <div className="absolute bottom-4 flex flex-col items-center">
         <span className="text-3xl font-bold text-white">{value}</span>
         <span className="text-xs uppercase tracking-widest text-[#848E9C]">
-          {value < 25 ? 'Extreme Fear' : value < 50 ? 'Fear' : value < 75 ? 'Greed' : 'Extreme Greed'}
+          {value < 25 ? t.extremeFear : value < 50 ? t.fear : value < 75 ? t.greed : t.extremeGreed}
         </span>
       </div>
     </div>

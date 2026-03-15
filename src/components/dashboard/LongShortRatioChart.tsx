@@ -1,11 +1,14 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { translations, Language } from '../../translations';
 
 interface LongShortRatioChartProps {
   data: any[];
+  language?: Language;
 }
 
-const LongShortRatioChart: React.FC<LongShortRatioChartProps> = ({ data }) => {
+const LongShortRatioChart: React.FC<LongShortRatioChartProps> = ({ data, language = 'en' }) => {
+  const t = translations[language];
   return (
     <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
@@ -21,7 +24,7 @@ const LongShortRatioChart: React.FC<LongShortRatioChartProps> = ({ data }) => {
           <Line 
             type="monotone" 
             dataKey="topTrader" 
-            name="Top Traders" 
+            name={t.topTraders} 
             stroke="#2196F3" 
             dot={false} 
             strokeWidth={2} 
@@ -29,7 +32,7 @@ const LongShortRatioChart: React.FC<LongShortRatioChartProps> = ({ data }) => {
           <Line 
             type="monotone" 
             dataKey="retail" 
-            name="Retail" 
+            name={t.retail} 
             stroke="#9C27B0" 
             dot={false} 
             strokeWidth={2} 

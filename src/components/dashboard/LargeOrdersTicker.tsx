@@ -1,5 +1,6 @@
 import React from 'react';
 import { Zap, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { translations, Language } from '../../translations';
 
 interface LargeOrder {
   id: number;
@@ -12,9 +13,11 @@ interface LargeOrder {
 
 interface LargeOrdersTickerProps {
   orders: LargeOrder[];
+  language?: Language;
 }
 
-const LargeOrdersTicker: React.FC<LargeOrdersTickerProps> = ({ orders }) => {
+const LargeOrdersTicker: React.FC<LargeOrdersTickerProps> = ({ orders, language = 'en' }) => {
+  const t = translations[language];
   return (
     <div className="space-y-3">
       {orders.map((order) => (
@@ -30,7 +33,7 @@ const LargeOrdersTicker: React.FC<LargeOrdersTickerProps> = ({ orders }) => {
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-white">{order.symbol}</span>
                 <span className={`text-[10px] font-bold px-1 rounded ${order.side === 'BUY' ? 'bg-emerald-500/20 text-emerald-500' : 'bg-red-500/20 text-red-500'}`}>
-                  {order.side}
+                  {order.side === 'BUY' ? t.buy.toUpperCase() : t.sell.toUpperCase()}
                 </span>
               </div>
               <div className="text-[10px] text-[#848E9C]">{order.time}</div>

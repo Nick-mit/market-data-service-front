@@ -1,5 +1,6 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { translations, Language } from '../../translations';
 
 interface CycleIndicator {
   name: string;
@@ -11,9 +12,21 @@ interface CycleIndicator {
 
 interface CycleIndicatorCardsProps {
   indicators: CycleIndicator[];
+  language?: Language;
 }
 
-const CycleIndicatorCards: React.FC<CycleIndicatorCardsProps> = ({ indicators }) => {
+const CycleIndicatorCards: React.FC<CycleIndicatorCardsProps> = ({ indicators, language = 'en' }) => {
+  const t = translations[language];
+
+  const getStatusTranslation = (status: string) => {
+    const s = status.toLowerCase();
+    if (s === 'invest') return t.invest;
+    if (s === 'accumulate') return t.accumulate;
+    if (s === 'neutral') return t.neutral_status;
+    if (s === 'buy') return t.buy;
+    return status;
+  };
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {indicators.map((ind) => {
@@ -29,7 +42,7 @@ const CycleIndicatorCards: React.FC<CycleIndicatorCardsProps> = ({ indicators })
                 ind.color === 'blue' ? 'bg-blue-500/10 text-blue-500' :
                 'bg-gray-500/10 text-gray-500'
               }`}>
-                {ind.status}
+                {getStatusTranslation(ind.status)}
               </div>
             </div>
             <div className="flex items-end gap-2">

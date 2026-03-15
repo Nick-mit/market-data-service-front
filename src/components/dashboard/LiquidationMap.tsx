@@ -1,11 +1,14 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { translations, Language } from '../../translations';
 
 interface LiquidationMapProps {
   data: any[];
+  language?: Language;
 }
 
-const LiquidationMap: React.FC<LiquidationMapProps> = ({ data }) => {
+const LiquidationMap: React.FC<LiquidationMapProps> = ({ data, language = 'en' }) => {
+  const t = translations[language];
   return (
     <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
@@ -24,7 +27,7 @@ const LiquidationMap: React.FC<LiquidationMapProps> = ({ data }) => {
           <Tooltip 
             contentStyle={{ backgroundColor: '#161A1E', border: '1px solid #1F2226', borderRadius: '8px' }}
             itemStyle={{ fontSize: '12px' }}
-            formatter={(value: any) => [`$${value.toFixed(2)}M`, 'Liquidation']}
+            formatter={(value: any) => [`$${value.toFixed(2)}M`, t.liquidation]}
           />
           <Bar dataKey="amount" radius={[0, 4, 4, 0]}>
             {data.map((entry, index) => (

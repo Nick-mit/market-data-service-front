@@ -1,4 +1,5 @@
 import React from 'react';
+import { translations, Language } from '../../translations';
 
 interface FundingRateHeatmapProps {
   data: {
@@ -6,9 +7,11 @@ interface FundingRateHeatmapProps {
     times: string[];
     data: { coin: string; values: string[] }[];
   };
+  language?: Language;
 }
 
-const FundingRateHeatmap: React.FC<FundingRateHeatmapProps> = ({ data }) => {
+const FundingRateHeatmap: React.FC<FundingRateHeatmapProps> = ({ data, language = 'en' }) => {
+  const t = translations[language];
   const getColor = (val: string) => {
     const num = parseFloat(val);
     if (num > 0.01) return 'bg-red-500';
@@ -24,7 +27,7 @@ const FundingRateHeatmap: React.FC<FundingRateHeatmapProps> = ({ data }) => {
       <table className="w-full border-collapse">
         <thead>
           <tr>
-            <th className="p-2 text-left text-[10px] uppercase text-[#848E9C] border border-[#1F2226]">Asset</th>
+            <th className="p-2 text-left text-[10px] uppercase text-[#848E9C] border border-[#1F2226]">{t.asset}</th>
             {data.times.map(t => (
               <th key={t} className="p-2 text-center text-[10px] uppercase text-[#848E9C] border border-[#1F2226] min-w-[40px]">
                 {t}

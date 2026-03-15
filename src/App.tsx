@@ -29,6 +29,8 @@ import LargeOrdersTicker from './components/dashboard/LargeOrdersTicker';
 import LongShortRatioChart from './components/dashboard/LongShortRatioChart';
 import OrderbookHeatmap from './components/dashboard/OrderbookHeatmap';
 
+import { translations, Language } from './translations';
+
 // --- Types ---
 interface KLine {
   time: number;
@@ -86,6 +88,9 @@ export default function App() {
   const [data, setData] = useState<KLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['sma', 'rsi']);
+  const [language, setLanguage] = useState<Language>('en');
+
+  const t = translations[language];
 
   // Analytical Data State
   const [fearGreed, setFearGreed] = useState<{ value: number; label: string } | null>(null);
@@ -469,17 +474,42 @@ export default function App() {
             <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(16,185,129,0.4)]">
               <TrendingUp className="text-black w-5 h-5" />
             </div>
-            <h1 className="text-xl font-bold tracking-tight text-white">QuantView <span className="text-[10px] font-normal text-[#848E9C] ml-1">PRO</span></h1>
+            <h1 className="text-xl font-bold tracking-tight text-white">{t.title} <span className="text-[10px] font-normal text-[#848E9C] ml-1">{t.pro}</span></h1>
           </div>
 
           <div className="h-6 w-px bg-[#1F2226]" />
 
           {/* Global Filters */}
           <div className="flex items-center gap-4">
+            {/* Language Selector */}
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
+                <span className="text-xs font-bold text-[#848E9C] uppercase">{language === 'en' ? 'Lang' : '语言'}</span>
+                <span className="text-xs font-medium text-white">
+                  {language === 'en' ? 'English' : '简体中文'}
+                </span>
+                <ChevronDown className="w-3 h-3 text-[#848E9C]" />
+              </button>
+              <div className="absolute left-0 mt-2 w-32 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2">
+                <button
+                  onClick={() => setLanguage('en')}
+                  className={`w-full text-left px-4 py-2 text-xs hover:bg-[#2B2F36] transition-colors ${language === 'en' ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => setLanguage('zh')}
+                  className={`w-full text-left px-4 py-2 text-xs hover:bg-[#2B2F36] transition-colors ${language === 'zh' ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                >
+                  简体中文
+                </button>
+              </div>
+            </div>
+
             {/* Exchange Selector */}
             <div className="relative group">
               <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
-                <span className="text-xs font-bold text-[#848E9C] uppercase">Exchange</span>
+                <span className="text-xs font-bold text-[#848E9C] uppercase">{t.exchange}</span>
                 <span className="text-xs font-medium text-white">
                   {EXCHANGES.find(ex => ex.id === exchange)?.name || exchange}
                 </span>
@@ -502,7 +532,7 @@ export default function App() {
             <div className="relative group">
               <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
                 <Globe className="w-3 h-3 text-blue-500" />
-                <span className="text-xs font-bold text-[#848E9C] uppercase">Asset</span>
+                <span className="text-xs font-bold text-[#848E9C] uppercase">{t.asset}</span>
                 <span className="text-xs font-medium text-white">{symbol}</span>
                 <ChevronDown className="w-3 h-3 text-[#848E9C]" />
               </button>
@@ -541,7 +571,7 @@ export default function App() {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 rounded-full border border-emerald-500/20">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Live Market</span>
+            <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{t.liveMarket}</span>
           </div>
           <button onClick={() => { fetchData(); fetchAnalyticalData(); }} className="p-2 hover:bg-[#2B2F36] rounded-lg transition-colors group">
             <RefreshCw className={`w-5 h-5 text-[#848E9C] group-hover:text-white ${loading ? 'animate-spin' : ''}`} />
@@ -558,30 +588,30 @@ export default function App() {
         <section className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">Macro Market Sentiment</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.macroSentiment}</h2>
           </div>
           <div className="grid grid-cols-12 gap-6">
             <div className="col-span-12 lg:col-span-3 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Fear & Greed Index</h3>
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.fearGreedIndex}</h3>
                 <Info className="w-3 h-3 text-[#474D57]" />
               </div>
-              {fearGreed && <FearGreedGauge value={fearGreed.value} />}
+              {fearGreed && <FearGreedGauge value={fearGreed.value} language={language} />}
             </div>
             
             <div className="col-span-12 lg:col-span-9 space-y-6">
-              <CycleIndicatorCards indicators={cycleIndicators} />
+              <CycleIndicatorCards indicators={cycleIndicators} language={language} />
               <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Global Capital Flow vs BTC Price</h3>
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.capitalFlow}</h3>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] text-[#848E9C]">Inflow</span>
+                      <span className="text-[10px] text-[#848E9C]">{t.inflow}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
                       <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span className="text-[10px] text-[#848E9C]">Outflow</span>
+                      <span className="text-[10px] text-[#848E9C]">{t.outflow}</span>
                     </div>
                   </div>
                 </div>
@@ -595,7 +625,7 @@ export default function App() {
         <section className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-1 h-4 bg-blue-500 rounded-full" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">Derivatives & Open Interest</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.derivativesOI}</h2>
           </div>
           <div className="grid grid-cols-12 gap-6">
             <div className="col-span-12 lg:col-span-9 space-y-6">
@@ -635,7 +665,7 @@ export default function App() {
                   <div className="absolute inset-0 bg-[#0B0E11]/50 backdrop-blur-sm flex items-center justify-center z-20">
                     <div className="flex flex-col items-center gap-3">
                       <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-                      <span className="text-sm font-medium text-[#848E9C]">Syncing Market Data...</span>
+                      <span className="text-sm font-medium text-[#848E9C]">{t.syncing}</span>
                     </div>
                   </div>
                 )}
@@ -643,29 +673,29 @@ export default function App() {
 
               <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Funding Rate Heatmap (24H)</h3>
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.fundingHeatmap}</h3>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-red-500">Bullish Bias</span>
+                    <span className="text-[10px] text-red-500">{t.bullishBias}</span>
                     <div className="w-20 h-2 bg-gradient-to-r from-emerald-500 to-red-500 rounded-full" />
-                    <span className="text-[10px] text-emerald-500">Bearish Bias</span>
+                    <span className="text-[10px] text-emerald-500">{t.bearishBias}</span>
                   </div>
                 </div>
-                {fundingHeatmap && <FundingRateHeatmap data={fundingHeatmap} />}
+                {fundingHeatmap && <FundingRateHeatmap data={fundingHeatmap} language={language} />}
               </div>
             </div>
 
             <div className="col-span-12 lg:col-span-3 space-y-6">
               <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Liquidation Map</h3>
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.liquidationMap}</h3>
                   <BarChart3 className="w-4 h-4 text-red-500" />
                 </div>
-                <LiquidationMap data={liquidationData} />
+                <LiquidationMap data={liquidationData} language={language} />
               </div>
 
               <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">Indicator Controls</h3>
+                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.indicatorControls}</h3>
                   <Layers className="w-4 h-4 text-blue-500" />
                 </div>
                 <div className="space-y-2">
@@ -693,34 +723,34 @@ export default function App() {
         <section className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-1 h-4 bg-purple-500 rounded-full" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">Micro Order Structure</h2>
+            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.microStructure}</h2>
           </div>
           <div className="grid grid-cols-12 gap-6">
             <div className="col-span-12 lg:col-span-4 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Long/Short Ratio (Top vs Retail)</h3>
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.longShortRatio}</h3>
                 <Activity className="w-4 h-4 text-purple-500" />
               </div>
-              <LongShortRatioChart data={longShortData} />
+              <LongShortRatioChart data={longShortData} language={language} />
             </div>
 
             <div className="col-span-12 lg:col-span-5 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Orderbook Heatmap (Depth)</h3>
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.orderbookHeatmap}</h3>
                 <Zap className="w-4 h-4 text-yellow-500" />
               </div>
               <div className="w-full h-64 bg-[#0B0E11] rounded-xl relative overflow-hidden border border-[#1F2226]">
-                <OrderbookHeatmap data={heatmapData} />
+                <OrderbookHeatmap data={heatmapData} language={language} />
               </div>
             </div>
 
             <div className="col-span-12 lg:col-span-3 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl overflow-hidden">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">Large Order Ticker</h3>
-                <div className="px-2 py-0.5 bg-red-500/10 rounded text-[8px] font-bold text-red-500 uppercase">Whale Alert</div>
+                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.largeOrderTicker}</h3>
+                <div className="px-2 py-0.5 bg-red-500/10 rounded text-[8px] font-bold text-red-500 uppercase">{t.whaleAlert}</div>
               </div>
               <div className="max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                <LargeOrdersTicker orders={largeOrders} />
+                <LargeOrdersTicker orders={largeOrders} language={language} />
               </div>
             </div>
           </div>
@@ -732,16 +762,16 @@ export default function App() {
         <div className="flex items-center gap-4 text-[10px] font-bold uppercase tracking-widest text-[#474D57]">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            <span>System: Operational</span>
+            <span>{t.systemOperational}</span>
           </div>
           <div className="w-1 h-1 rounded-full bg-[#474D57]" />
-          <span>API Latency: 42ms</span>
+          <span>{t.apiLatency}: 42ms</span>
           <div className="w-1 h-1 rounded-full bg-[#474D57]" />
-          <span>Last Update: {new Date().toLocaleTimeString()}</span>
+          <span>{t.lastUpdate}: {new Date().toLocaleTimeString()}</span>
         </div>
         <div className="flex items-center gap-4">
-          <button className="text-[10px] font-bold uppercase text-[#848E9C] hover:text-white transition-colors">Documentation</button>
-          <button className="text-[10px] font-bold uppercase text-[#848E9C] hover:text-white transition-colors">API Keys</button>
+          <button className="text-[10px] font-bold uppercase text-[#848E9C] hover:text-white transition-colors">{t.documentation}</button>
+          <button className="text-[10px] font-bold uppercase text-[#848E9C] hover:text-white transition-colors">{t.apiKeys}</button>
           <div className="h-4 w-px bg-[#1F2226]" />
           <span className="text-[10px] text-[#474D57]">© 2026 QuantView Pro</span>
         </div>

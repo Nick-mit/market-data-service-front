@@ -1,13 +1,16 @@
 import React, { useEffect, useRef } from 'react';
+import { translations, Language } from '../../translations';
 
 interface OrderbookHeatmapProps {
   data: {
     time: number;
     levels: { price: number; intensity: number }[];
   }[];
+  language?: Language;
 }
 
-const OrderbookHeatmap: React.FC<OrderbookHeatmapProps> = ({ data }) => {
+const OrderbookHeatmap: React.FC<OrderbookHeatmapProps> = ({ data, language = 'en' }) => {
+  const t = translations[language];
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -73,9 +76,9 @@ const OrderbookHeatmap: React.FC<OrderbookHeatmapProps> = ({ data }) => {
       />
       <div className="absolute bottom-2 right-4 flex items-center gap-2">
         <div className="w-2 h-2 rounded-full bg-blue-500" />
-        <span className="text-[8px] text-[#848E9C] uppercase">Low Depth</span>
+        <span className="text-[8px] text-[#848E9C] uppercase">{t.lowDepth}</span>
         <div className="w-2 h-2 rounded-full bg-red-500" />
-        <span className="text-[8px] text-[#848E9C] uppercase">High Depth</span>
+        <span className="text-[8px] text-[#848E9C] uppercase">{t.highDepth}</span>
       </div>
     </div>
   );
