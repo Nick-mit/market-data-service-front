@@ -159,6 +159,20 @@ async function startServer() {
     }
   });
 
+  // 10. Tushare Smart Money (Northbound Funds)
+  apiRouter.get("/v1/tushare/smart-money", (req, res) => {
+    const data = Array.from({ length: 30 }).map((_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (30 - i));
+      return {
+        date: date.toISOString().split('T')[0],
+        index: 3000 + Math.sin(i / 5) * 200 + Math.random() * 50,
+        inflow: (Math.random() - 0.4) * 5000 // Net inflow in Millions
+      };
+    });
+    res.json(data);
+  });
+
   app.use("/api", apiRouter);
 
   // Health check
