@@ -15,6 +15,10 @@ import {
 } from 'lucide-react';
 
 // Dashboard Components
+import FundingRateHeatmap from './components/dashboard/FundingRateHeatmap';
+import SmartMoneyTracker from './components/dashboard/SmartMoneyTracker';
+import SectorHeatmap from './components/dashboard/SectorHeatmap';
+
 import { translations, Language } from './translations';
 
 // --- Types ---
@@ -75,11 +79,13 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [activeIndicators, setActiveIndicators] = useState<string[]>(['sma', 'rsi']);
   const [language, setLanguage] = useState<Language>('en');
+  const [activeBoard, setActiveBoard] = useState<'crypto' | 'ashares'>('crypto');
 
   const t = translations[language];
 
   // Analytical Data State
   const [oiData, setOiData] = useState<any[]>([]);
+  const [smartMoneyData, setSmartMoneyData] = useState<any[]>([]);
 
   // --- Health Check ---
   useEffect(() => {
@@ -90,17 +96,26 @@ export default function App() {
 
   // --- Analytical Data Fetching ---
   const fetchAnalyticalData = async () => {
-    try {
-      const endpoints = [
-        '/api/v1/coinank/open-interest/agg-kline',
-      ];
+    if (activeBoard === 'crypto') {
+      try {
+        const endpoints = [
+          '/api/v1/coinank/open-interest/agg-kline',
+        ];
 
-      const responses = await Promise.all(endpoints.map(url => axios.get(url)));
-      const [oi] = responses.map(r => r.data);
+        const responses = await Promise.all(endpoints.map(url => axios.get(url)));
+        const [oi] = responses.map(r => r.data);
 
-      setOiData(oi);
-    } catch (e: any) {
-      console.error('Failed to fetch analytical data:', e.message || e, e.config?.url);
+        setOiData(oi);
+      } catch (e: any) {
+        console.error('Failed to fetch analytical data:', e.message || e, e.config?.url);
+      }
+    } else if (activeBoard === 'ashares') {
+      try {
+        const response = await axios.get('/api/v1/tushare/smart-money');
+        setSmartMoneyData(response.data);
+      } catch (e: any) {
+        console.error('Failed to fetch A-Shares data:', e.message || e);
+      }
     }
   };
 
@@ -110,7 +125,7 @@ export default function App() {
       fetchAnalyticalData();
     }, 30000); // Poll every 30s
     return () => clearInterval(intervalId);
-  }, [symbol, exchange]);
+  }, [symbol, exchange, activeBoard]);
 
   // --- Indicators Calculation ---
   const indicatorData = useMemo(() => {
@@ -441,6 +456,32 @@ export default function App() {
 
           <div className="h-6 w-px bg-[#1F2226]" />
 
+          {/* Board Switcher */}
+          <div className="flex bg-[#0B0E11] rounded-xl p-1 border border-[#1F2226]">
+            <button
+              onClick={() => setActiveBoard('crypto')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeBoard === 'crypto'
+                ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                : 'text-[#848E9C] hover:text-white'
+              }`}
+            >
+              {t.cryptoBoard}
+            </button>
+            <button
+              onClick={() => setActiveBoard('ashares')}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeBoard === 'ashares'
+                ? 'bg-blue-500 text-white shadow-[0_0_15px_rgba(59,130,246,0.4)]'
+                : 'text-[#848E9C] hover:text-white'
+              }`}
+            >
+              {t.asharesBoard}
+            </button>
+          </div>
+
+          <div className="h-6 w-px bg-[#1F2226]" />
+
           {/* Global Filters */}
           <div className="flex items-center gap-4">
             {/* Language Selector */}
@@ -467,66 +508,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-
-            {/* Exchange Selector */}
-            <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
-                <span className="text-xs font-bold text-[#848E9C] uppercase">{t.exchange}</span>
-                <span className="text-xs font-medium text-white">
-                  {EXCHANGES.find(ex => ex.id === exchange)?.name || exchange}
-                </span>
-                <ChevronDown className="w-3 h-3 text-[#848E9C]" />
-              </button>
-              <div className="absolute left-0 mt-2 w-40 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2">
-                {EXCHANGES.map(ex => (
-                  <button
-                    key={ex.id}
-                    onClick={() => setExchange(ex.id)}
-                    className={`w-full text-left px-4 py-2 text-xs hover:bg-[#2B2F36] transition-colors ${exchange === ex.id ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
-                  >
-                    {ex.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Symbol Selector */}
-            <div className="relative group">
-              <button className="flex items-center gap-2 px-3 py-1.5 bg-[#0B0E11] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
-                <Globe className="w-3 h-3 text-blue-500" />
-                <span className="text-xs font-bold text-[#848E9C] uppercase">{t.asset}</span>
-                <span className="text-xs font-medium text-white">{symbol}</span>
-                <ChevronDown className="w-3 h-3 text-[#848E9C]" />
-              </button>
-              <div className="absolute left-0 mt-2 w-48 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2 max-h-[300px] overflow-y-auto">
-                {SYMBOLS.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setSymbol(s)}
-                    className={`w-full text-left px-4 py-2 text-xs hover:bg-[#2B2F36] transition-colors ${symbol === s ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Interval Selector */}
-            <div className="flex bg-[#0B0E11] rounded-lg p-1 border border-[#1F2226]">
-              {INTERVALS.map(i => (
-                <button
-                  key={i}
-                  onClick={() => setKLineInterval(i)}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
-                    klineInterval === i 
-                    ? 'bg-[#2B2F36] text-emerald-500 shadow-sm' 
-                    : 'text-[#848E9C] hover:text-white'
-                  }`}
-                >
-                  {i}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 
@@ -545,84 +526,228 @@ export default function App() {
       </header>
 
       <main className="p-6 max-w-[1800px] mx-auto space-y-6">
-        
-        {/* Module: Derivatives & Open Interest */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-4 bg-blue-500 rounded-full" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.derivativesOI}</h2>
-          </div>
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-12 lg:col-span-9 space-y-6">
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl overflow-hidden shadow-2xl relative">
-                <div className="absolute top-4 left-4 z-10 flex items-center gap-4 bg-[#161A1E]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#1F2226]">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white">{exchange.toUpperCase()}</span>
-                    <span className="text-xs text-[#848E9C]">{symbol}</span>
-                    <span className="text-xs text-emerald-500">{klineInterval}</span>
+        {activeBoard === 'crypto' ? (
+          <>
+            {/* Module: Derivatives & Open Interest */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-1 h-4 bg-blue-500 rounded-full" />
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.derivativesOI}</h2>
+                </div>
+                
+                {/* Crypto Specific Controls */}
+                <div className="flex items-center gap-3">
+                  {/* Exchange Selector */}
+                  <div className="relative group">
+                    <button className="flex items-center gap-2 px-3 py-1.5 bg-[#161A1E] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
+                      <span className="text-[10px] font-bold text-[#848E9C] uppercase">{t.exchange}</span>
+                      <span className="text-[10px] font-medium text-white">
+                        {EXCHANGES.find(ex => ex.id === exchange)?.name || exchange}
+                      </span>
+                      <ChevronDown className="w-3 h-3 text-[#848E9C]" />
+                    </button>
+                    <div className="absolute right-0 mt-2 w-32 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2">
+                      {EXCHANGES.map(ex => (
+                        <button
+                          key={ex.id}
+                          onClick={() => setExchange(ex.id)}
+                          className={`w-full text-left px-4 py-2 text-[10px] hover:bg-[#2B2F36] transition-colors ${exchange === ex.id ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                        >
+                          {ex.name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="h-3 w-px bg-[#1F2226]" />
-                  <div className="flex items-center gap-3">
-                    {activeIndicators.map(id => (
-                      <span key={id} className="text-[10px] uppercase font-bold text-blue-400">{id}</span>
+
+                  {/* Symbol Selector */}
+                  <div className="relative group">
+                    <button className="flex items-center gap-2 px-3 py-1.5 bg-[#161A1E] rounded-lg border border-[#1F2226] hover:border-emerald-500 transition-all">
+                      <Globe className="w-3 h-3 text-blue-500" />
+                      <span className="text-[10px] font-bold text-[#848E9C] uppercase">{t.asset}</span>
+                      <span className="text-[10px] font-medium text-white">{symbol}</span>
+                      <ChevronDown className="w-3 h-3 text-[#848E9C]" />
+                    </button>
+                    <div className="absolute right-0 mt-2 w-40 bg-[#161A1E] border border-[#1F2226] rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-[60] py-2 max-h-[250px] overflow-y-auto custom-scrollbar">
+                      {SYMBOLS.map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setSymbol(s)}
+                          className={`w-full text-left px-4 py-2 text-[10px] hover:bg-[#2B2F36] transition-colors ${symbol === s ? 'text-emerald-500 font-bold' : 'text-[#848E9C]'}`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Interval Selector */}
+                  <div className="flex bg-[#0B0E11] rounded-lg p-1 border border-[#1F2226]">
+                    {INTERVALS.map(i => (
+                      <button
+                        key={i}
+                        onClick={() => setKLineInterval(i)}
+                        className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase transition-all ${
+                          klineInterval === i 
+                          ? 'bg-[#2B2F36] text-emerald-500 shadow-sm' 
+                          : 'text-[#848E9C] hover:text-white'
+                        }`}
+                      >
+                        {i}
+                      </button>
                     ))}
                   </div>
                 </div>
-                
-                <div ref={chartContainerRef} className="w-full h-[500px]" />
-                
-                {/* Sub-Charts for Oscillators */}
-                <div className="flex flex-col border-t border-[#1F2226]">
-                  {INDICATORS.filter(ind => ind.type === 'oscillator' && activeIndicators.includes(ind.id)).map(osc => (
-                    <div key={osc.id} className="relative border-b border-[#1F2226] last:border-b-0">
-                      <div className="absolute top-2 left-4 z-10 bg-[#161A1E]/80 px-2 py-0.5 rounded text-[10px] font-bold text-[#848E9C] uppercase border border-[#1F2226]">
-                        {osc.name}
+              </div>
+              <div className="grid grid-cols-12 gap-6">
+                <div className="col-span-12 lg:col-span-9 space-y-6">
+                  <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl overflow-hidden shadow-2xl relative">
+                    <div className="absolute top-4 left-4 z-10 flex items-center gap-4 bg-[#161A1E]/80 backdrop-blur-md px-3 py-1.5 rounded-lg border border-[#1F2226]">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{exchange.toUpperCase()}</span>
+                        <span className="text-xs text-[#848E9C]">{symbol}</span>
+                        <span className="text-xs text-emerald-500">{klineInterval}</span>
                       </div>
-                      <div 
-                        ref={el => subChartContainersRef.current[osc.id] = el} 
-                        className="w-full h-[150px]" 
-                      />
+                      <div className="h-3 w-px bg-[#1F2226]" />
+                      <div className="flex items-center gap-3">
+                        {activeIndicators.map(id => (
+                          <span key={id} className="text-[10px] uppercase font-bold text-blue-400">{id}</span>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                    
+                    <div ref={chartContainerRef} className="w-full h-[500px]" />
+                    
+                    {/* Sub-Charts for Oscillators */}
+                    <div className="flex flex-col border-t border-[#1F2226]">
+                      {INDICATORS.filter(ind => ind.type === 'oscillator' && activeIndicators.includes(ind.id)).map(osc => (
+                        <div key={osc.id} className="relative border-b border-[#1F2226] last:border-b-0">
+                          <div className="absolute top-2 left-4 z-10 bg-[#161A1E]/80 px-2 py-0.5 rounded text-[10px] font-bold text-[#848E9C] uppercase border border-[#1F2226]">
+                            {osc.name}
+                          </div>
+                          <div 
+                            ref={el => subChartContainersRef.current[osc.id] = el} 
+                            className="w-full h-[150px]" 
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {loading && (
+                      <div className="absolute inset-0 bg-[#0B0E11]/50 backdrop-blur-sm flex items-center justify-center z-20">
+                        <div className="flex flex-col items-center gap-3">
+                          <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
+                          <span className="text-sm font-medium text-[#848E9C]">{t.syncing}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                
-                {loading && (
-                  <div className="absolute inset-0 bg-[#0B0E11]/50 backdrop-blur-sm flex items-center justify-center z-20">
-                    <div className="flex flex-col items-center gap-3">
-                      <RefreshCw className="w-8 h-8 text-emerald-500 animate-spin" />
-                      <span className="text-sm font-medium text-[#848E9C]">{t.syncing}</span>
+
+                <div className="col-span-12 lg:col-span-3 space-y-6">
+                  <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.indicatorControls}</h3>
+                      <Layers className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <div className="space-y-2">
+                      {INDICATORS.map(ind => (
+                        <button
+                          key={ind.id}
+                          onClick={() => toggleIndicator(ind.id)}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
+                            activeIndicators.includes(ind.id)
+                            ? 'bg-[#2B2F36] text-white'
+                            : 'text-[#848E9C] hover:bg-[#2B2F36]/50'
+                          }`}
+                        >
+                          <span className="text-xs">{ind.name}</span>
+                          <div className={`w-2 h-2 rounded-full ${activeIndicators.includes(ind.id) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-[#474D57]'}`} />
+                        </button>
+                      ))}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className="col-span-12 lg:col-span-3 space-y-6">
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.indicatorControls}</h3>
-                  <Layers className="w-4 h-4 text-blue-500" />
                 </div>
-                <div className="space-y-2">
-                  {INDICATORS.map(ind => (
-                    <button
-                      key={ind.id}
-                      onClick={() => toggleIndicator(ind.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${
-                        activeIndicators.includes(ind.id)
-                        ? 'bg-[#2B2F36] text-white'
-                        : 'text-[#848E9C] hover:bg-[#2B2F36]/50'
-                      }`}
-                    >
-                      <span className="text-xs">{ind.name}</span>
-                      <div className={`w-2 h-2 rounded-full ${activeIndicators.includes(ind.id) ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-[#474D57]'}`} />
-                    </button>
-                  ))}
+              </div>
+            </section>
+          </>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-1 h-4 bg-blue-500 rounded-full" />
+              <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.smartMoneyTracker}</h2>
+            </div>
+            
+            <div className="grid grid-cols-12 gap-6">
+              <div className="col-span-12 lg:col-span-8">
+                <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <TrendingUp size={18} className="text-blue-500" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">{t.northboundFunds}</h3>
+                        <p className="text-[10px] text-[#848E9C] uppercase tracking-wider">Institutional Flow Analysis</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-blue-500" />
+                        <span className="text-[10px] text-[#848E9C]">{t.indexPrice}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-[10px] text-[#848E9C]">{t.netInflow}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <SmartMoneyTracker data={smartMoneyData} language={language} />
+                </div>
+              </div>
+
+              <div className="col-span-12 lg:col-span-4 space-y-6">
+                <SectorHeatmap language={language} />
+
+                <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-[#848E9C] uppercase">Market Overview</h3>
+                    <Globe className="w-4 h-4 text-blue-500" />
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-3 bg-[#0B0E11] rounded-xl border border-[#1F2226]">
+                      <p className="text-[10px] text-[#848E9C] uppercase mb-1">SSE Composite</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-white">3,054.21</span>
+                        <span className="text-xs text-emerald-500">+0.45%</span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-[#0B0E11] rounded-xl border border-[#1F2226]">
+                      <p className="text-[10px] text-[#848E9C] uppercase mb-1">SZSE Component</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-white">9,412.31</span>
+                        <span className="text-xs text-red-500">-0.12%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden group">
+                  <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
+                    <TrendingUp size={120} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-2">Alpha Signal</h3>
+                  <p className="text-xs text-blue-100 mb-4 leading-relaxed">
+                    Our proprietary algorithm detected a 10-day consecutive inflow from Northbound funds. Historical accuracy for 5-day return: 78%.
+                  </p>
+                  <button className="w-full py-2 bg-white text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-50 transition-colors">
+                    View Detailed Report
+                  </button>
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        )}
       </main>
 
       {/* Footer */}
