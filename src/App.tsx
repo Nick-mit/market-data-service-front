@@ -7,28 +7,14 @@ import {
 import { 
   TrendingUp, 
   Settings, 
-  BarChart3, 
   Layers, 
   RefreshCw, 
   ChevronDown,
-  Activity,
-  Zap,
   Globe,
-  Maximize2,
-  Info,
-  ArrowRight
+  Maximize2
 } from 'lucide-react';
 
 // Dashboard Components
-import FearGreedGauge from './components/dashboard/FearGreedGauge';
-import CapitalFlowChart from './components/dashboard/CapitalFlowChart';
-import CycleIndicatorCards from './components/dashboard/CycleIndicatorCards';
-import FundingRateHeatmap from './components/dashboard/FundingRateHeatmap';
-import LiquidationMap from './components/dashboard/LiquidationMap';
-import LargeOrdersTicker from './components/dashboard/LargeOrdersTicker';
-import LongShortRatioChart from './components/dashboard/LongShortRatioChart';
-import OrderbookHeatmap from './components/dashboard/OrderbookHeatmap';
-
 import { translations, Language } from './translations';
 
 // --- Types ---
@@ -93,15 +79,7 @@ export default function App() {
   const t = translations[language];
 
   // Analytical Data State
-  const [fearGreed, setFearGreed] = useState<{ value: number; label: string } | null>(null);
-  const [capitalFlow, setCapitalFlow] = useState<any[]>([]);
-  const [cycleIndicators, setCycleIndicators] = useState<any[]>([]);
-  const [fundingHeatmap, setFundingHeatmap] = useState<any>(null);
   const [oiData, setOiData] = useState<any[]>([]);
-  const [liquidationData, setLiquidationData] = useState<any[]>([]);
-  const [longShortData, setLongShortData] = useState<any[]>([]);
-  const [largeOrders, setLargeOrders] = useState<any[]>([]);
-  const [heatmapData, setHeatmapData] = useState<any[]>([]);
 
   // --- Health Check ---
   useEffect(() => {
@@ -114,29 +92,13 @@ export default function App() {
   const fetchAnalyticalData = async () => {
     try {
       const endpoints = [
-        '/api/v1/coinank/indicator/fear-greed',
-        '/api/v1/coinank/capital-flow/history',
-        '/api/v1/coinank/cycle-indicators',
-        '/api/v1/coinank/funding-rate/heatmap',
         '/api/v1/coinank/open-interest/agg-kline',
-        '/api/v1/coinank/liquidation/agg-map',
-        '/api/v1/coinank/long-short/ratios',
-        '/api/v1/coinank/large-order/market',
-        '/api/v1/coinank/order-book/heatmap',
       ];
 
       const responses = await Promise.all(endpoints.map(url => axios.get(url)));
-      const [fg, cf, ci, fh, oi, liq, ls, lo, hm] = responses.map(r => r.data);
+      const [oi] = responses.map(r => r.data);
 
-      setFearGreed(fg);
-      setCapitalFlow(cf);
-      setCycleIndicators(ci);
-      setFundingHeatmap(fh);
       setOiData(oi);
-      setLiquidationData(liq);
-      setLongShortData(ls);
-      setLargeOrders(lo);
-      setHeatmapData(hm);
     } catch (e: any) {
       console.error('Failed to fetch analytical data:', e.message || e, e.config?.url);
     }
@@ -584,44 +546,7 @@ export default function App() {
 
       <main className="p-6 max-w-[1800px] mx-auto space-y-6">
         
-        {/* Module 1: Macro View */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-4 bg-emerald-500 rounded-full" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.macroSentiment}</h2>
-          </div>
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-12 lg:col-span-3 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.fearGreedIndex}</h3>
-                <Info className="w-3 h-3 text-[#474D57]" />
-              </div>
-              {fearGreed && <FearGreedGauge value={fearGreed.value} language={language} />}
-            </div>
-            
-            <div className="col-span-12 lg:col-span-9 space-y-6">
-              <CycleIndicatorCards indicators={cycleIndicators} language={language} />
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.capitalFlow}</h3>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                      <span className="text-[10px] text-[#848E9C]">{t.inflow}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2 h-2 rounded-full bg-red-500" />
-                      <span className="text-[10px] text-[#848E9C]">{t.outflow}</span>
-                    </div>
-                  </div>
-                </div>
-                <CapitalFlowChart data={capitalFlow} />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Module 2: Derivatives & Open Interest */}
+        {/* Module: Derivatives & Open Interest */}
         <section className="space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-1 h-4 bg-blue-500 rounded-full" />
@@ -670,29 +595,9 @@ export default function App() {
                   </div>
                 )}
               </div>
-
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.fundingHeatmap}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-red-500">{t.bullishBias}</span>
-                    <div className="w-20 h-2 bg-gradient-to-r from-emerald-500 to-red-500 rounded-full" />
-                    <span className="text-[10px] text-emerald-500">{t.bearishBias}</span>
-                  </div>
-                </div>
-                {fundingHeatmap && <FundingRateHeatmap data={fundingHeatmap} language={language} />}
-              </div>
             </div>
 
             <div className="col-span-12 lg:col-span-3 space-y-6">
-              <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.liquidationMap}</h3>
-                  <BarChart3 className="w-4 h-4 text-red-500" />
-                </div>
-                <LiquidationMap data={liquidationData} language={language} />
-              </div>
-
               <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.indicatorControls}</h3>
@@ -714,43 +619,6 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Module 3: Micro Structure */}
-        <section className="space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-1 h-4 bg-purple-500 rounded-full" />
-            <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.microStructure}</h2>
-          </div>
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-12 lg:col-span-4 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.longShortRatio}</h3>
-                <Activity className="w-4 h-4 text-purple-500" />
-              </div>
-              <LongShortRatioChart data={longShortData} language={language} />
-            </div>
-
-            <div className="col-span-12 lg:col-span-5 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.orderbookHeatmap}</h3>
-                <Zap className="w-4 h-4 text-yellow-500" />
-              </div>
-              <div className="w-full h-64 bg-[#0B0E11] rounded-xl relative overflow-hidden border border-[#1F2226]">
-                <OrderbookHeatmap data={heatmapData} language={language} />
-              </div>
-            </div>
-
-            <div className="col-span-12 lg:col-span-3 bg-[#161A1E] border border-[#1F2226] rounded-2xl p-6 shadow-xl overflow-hidden">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xs font-bold text-[#848E9C] uppercase">{t.largeOrderTicker}</h3>
-                <div className="px-2 py-0.5 bg-red-500/10 rounded text-[8px] font-bold text-red-500 uppercase">{t.whaleAlert}</div>
-              </div>
-              <div className="max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
-                <LargeOrdersTicker orders={largeOrders} language={language} />
               </div>
             </div>
           </div>
