@@ -8,12 +8,25 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Backend API configuration
+const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:3101";
+const API_KEY = process.env.VITE_API_KEY || "7fXZt817QOeBr4H2XH/mDmhKO+2yybe1prDYDSg4HOD8gC7qeiZBfscuZgtMnVOK";
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(cors());
   app.use(express.json());
+
+  // Content Security Policy - allow eval for lightweight-charts and ws for Vite HMR
+  app.use((req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: ws: wss:; worker-src 'self' blob:;"
+    );
+    next();
+  });
 
   // Request logging
   app.use((req, res, next) => {
@@ -112,100 +125,38 @@ async function startServer() {
     }
   });
 
-  // 1. Fear & Greed Index
-  apiRouter.get("/v1/coinank/indicator/fear-greed", (req, res) => {
-    res.json({ value: 65 + Math.floor(Math.random() * 10), label: "Greed", timestamp: Date.now() });
-  });
+  // ========== CoinAnk API Proxy ==========
+  // Proxy all /v1/coinank/* requests to backend service
+  apiRouter.use("/v1/coinank", async (req, res) => {
+    const path = req.path;
+    const method = req.method.toLowerCase();
+    const query = req.query;
 
-  // 2. Capital Flow History
-  apiRouter.get("/v1/coinank/capital-flow/history", (req, res) => {
-    const data = Array.from({ length: 24 }).map((_, i) => ({
-      time: Date.now() - (24 - i) * 3600000,
-      netFlow: (Math.random() - 0.4) * 500,
-      price: 60000 + Math.random() * 5000
-    }));
-    res.json(data);
-  });
+    console.log(`[CoinAnk Proxy] ${method.toUpperCase()} ${path}`, query);
 
-  // 3. Cycle Indicators
-  apiRouter.get("/v1/coinank/cycle-indicators", (req, res) => {
-    res.json([
-      { name: "ahr999", value: 1.25, yesterday: 1.20, status: "Invest", color: "emerald" },
-      { name: "Pi-Cycle", value: 0.85, yesterday: 0.84, status: "Accumulate", color: "blue" },
-      { name: "Puell Multiple", value: 1.12, yesterday: 1.15, status: "Neutral", color: "gray" },
-      { name: "2Y MA Multiplier", value: 0.95, yesterday: 0.96, status: "Buy", color: "emerald" }
-    ]);
-  });
-
-  // 4. Funding Rate Heatmap
-  apiRouter.get("/v1/coinank/funding-rate/heatmap", (req, res) => {
-    const coins = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOT"];
-    const times = Array.from({ length: 12 }).map((_, i) => i + "h ago");
-    const data = coins.map(coin => ({
-      coin,
-      values: times.map(() => (Math.random() * 0.02 - 0.005).toFixed(4))
-    }));
-    res.json({ coins, times, data });
-  });
-
-  // 5. Open Interest Aggregated
-  apiRouter.get("/v1/coinank/open-interest/agg-kline", (req, res) => {
-    const data = Array.from({ length: 50 }).map((_, i) => ({
-      time: Date.now() - (50 - i) * 3600000,
-      oi: 15000 + Math.random() * 2000,
-      price: 60000 + Math.random() * 5000
-    }));
-    res.json(data);
-  });
-
-  // 6. Liquidation Map
-  apiRouter.get("/v1/coinank/liquidation/agg-map", (req, res) => {
-    const currentPrice = 65000;
-    const data = Array.from({ length: 40 }).map((_, i) => {
-      const price = currentPrice - 2000 + i * 100;
-      return {
-        price,
-        amount: Math.random() * 50,
-        type: price > currentPrice ? "short" : "long"
+    try {
+      const config: any = {
+        method,
+        url: `${BACKEND_URL}/api/v1/coinank${path}`,
+        params: query,
+        headers: {
+          "X-API-Key": API_KEY,
+          "Content-Type": "application/json",
+        },
       };
-    });
-    res.json(data);
-  });
 
-  // 7. Orderbook Heatmap
-  apiRouter.get("/v1/coinank/order-book/heatmap", (req, res) => {
-    const currentPrice = 65000;
-    const priceLevels = Array.from({ length: 20 }).map((_, i) => currentPrice - 500 + i * 50);
-    const timeSteps = Array.from({ length: 30 }).map((_, i) => i);
-    const heatmap = timeSteps.map(t => ({
-      time: t,
-      levels: priceLevels.map(p => ({
-        price: p,
-        intensity: Math.random()
-      }))
-    }));
-    res.json(heatmap);
-  });
+      if (method === "post" || method === "put") {
+        config.data = req.body;
+      }
 
-  // 8. Long/Short Ratios
-  apiRouter.get("/v1/coinank/long-short/ratios", (req, res) => {
-    const data = Array.from({ length: 24 }).map((_, i) => ({
-      time: Date.now() - (24 - i) * 3600000,
-      topTrader: 1.2 + Math.random() * 0.5,
-      retail: 0.8 + Math.random() * 0.4
-    }));
-    res.json(data);
-  });
-
-  // 9. Large Orders
-  apiRouter.get("/v1/coinank/large-order/market", (req, res) => {
-    const orders = [
-      { id: 1, symbol: "BTCUSDT", side: "BUY", amount: "1.2M", time: "12:05:01", price: "65230" },
-      { id: 2, symbol: "ETHUSDT", side: "SELL", amount: "850K", time: "12:04:45", price: "3450" },
-      { id: 3, symbol: "SOLUSDT", side: "BUY", amount: "2.1M", time: "12:04:12", price: "145.2" },
-      { id: 4, symbol: "BTCUSDT", side: "SELL", amount: "3.5M", time: "12:03:55", price: "65190" },
-    ];
-    res.json(orders);
+      const response = await axios(config);
+      res.json(response.data);
+    } catch (error: any) {
+      console.error(`[CoinAnk Proxy Error] ${error.message}`);
+      const status = error.response?.status || 500;
+      const data = error.response?.data || { error: "Proxy error", message: error.message };
+      res.status(status).json(data);
+    }
   });
 
   app.use("/api", apiRouter);
@@ -215,19 +166,16 @@ async function startServer() {
     res.json({ status: "ok", timestamp: new Date().toISOString() });
   });
 
-  // Global error handler
-  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error("Unhandled Error:", err);
-    res.status(500).json({ error: "Internal Server Error", message: err.message });
-  });
-
-  // Vite middleware for development
+  // Vite middleware for development (must be before error handler)
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
-    app.use(vite.middlewares);
+    // Use Vite's connect middleware directly
+    app.use((req, res, next) => {
+      vite.middlewares(req, res, next);
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
@@ -235,6 +183,12 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // Global error handler (must be after all other middleware)
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Unhandled Error:", err);
+    res.status(500).json({ error: "Internal Server Error", message: err.message });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);

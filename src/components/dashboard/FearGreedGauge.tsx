@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { translations, Language } from '../../translations';
 
@@ -9,6 +9,12 @@ interface FearGreedGaugeProps {
 
 const FearGreedGauge: React.FC<FearGreedGaugeProps> = ({ value, language = 'en' }) => {
   const t = translations[language];
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = requestAnimationFrame(() => setIsMounted(true));
+    return () => cancelAnimationFrame(timer);
+  }, []);
 
   const data = [
     { name: t.fear, value: 25, color: '#ef5350' },
@@ -24,6 +30,7 @@ const FearGreedGauge: React.FC<FearGreedGaugeProps> = ({ value, language = 'en' 
 
   return (
     <div className="relative w-full h-48 flex flex-col items-center justify-center">
+      {isMounted && (
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
@@ -58,7 +65,8 @@ const FearGreedGauge: React.FC<FearGreedGaugeProps> = ({ value, language = 'en' 
           </Pie>
         </PieChart>
       </ResponsiveContainer>
-      
+      )}
+
       {/* Needle Overlay */}
       <div 
         className="absolute bottom-[20%] left-1/2 w-1 h-24 bg-white origin-bottom rounded-full transition-transform duration-1000 ease-out"

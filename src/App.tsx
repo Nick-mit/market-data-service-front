@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import * as LightweightCharts from 'lightweight-charts';
 import axios from 'axios';
-import { 
-  SMA, EMA, VWAP, BollingerBands, MACD, RSI, ADX, CCI, ATR, OBV 
+import {
+  SMA, EMA, VWAP, BollingerBands, MACD, RSI, ADX, CCI, ATR, OBV
 } from 'technicalindicators';
-import { 
-  TrendingUp, 
-  Settings, 
-  Layers, 
-  RefreshCw, 
+import {
+  TrendingUp,
+  Settings,
+  BarChart3,
+  Layers,
+  RefreshCw,
   ChevronDown,
   Globe,
   Maximize2
@@ -16,6 +17,13 @@ import {
 
 // Dashboard Components
 import { translations, Language } from './translations';
+
+// --- API Client with Auth ---
+const apiClient = axios.create({
+  headers: {
+    'X-API-Key': import.meta.env.VITE_API_KEY || '',
+  },
+});
 
 // --- Types ---
 interface KLine {
@@ -37,6 +45,12 @@ const EXCHANGES = [
 ];
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
+
+// Helper function to get timestamp (ms) for API calls
+const getEndTimeMs = () => Date.now().toString();
+
+// Extract base coin from symbol (e.g., BTCUSDT -> BTC)
+const getBaseCoin = (symbol: string) => symbol.replace('USDT', '').replace('BUSD', '');
 
 const SYMBOLS = [
   'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 
@@ -83,22 +97,206 @@ export default function App() {
 
   // --- Health Check ---
   useEffect(() => {
-    axios.get('/health')
+    apiClient.get('/health')
       .then(r => console.log('Backend Health Check:', r.data))
       .catch(e => console.error('Backend Health Check Failed:', e.message));
   }, []);
 
+  // --- Fetch Cycle Indicators (aggregate from multiple endpoints) ---
+  const fetchCycleIndicators = async (): Promise<any[]> => {
+    try {
+      const [ahr999Res, puellRes, piCycleRes, twoYearMARes] = await Promise.all([
+        apiClient.get('/api/v1/coinank/indicator/ahr999', { params: { limit: 2 } }),
+        apiClient.get('/api/v1/coinank/indicator/puell', { params: { limit: 2 } }),
+        apiClient.get('/api/v1/coinank/indicator/pi-cycle', { params: { limit: 2 } }),
+        apiClient.get('/api/v1/coinank/indicator/two-year-ma', { params: { limit: 2 } }),
+      ]);
+
+      // Helper to extract value and yesterday from API response
+      const extractIndicatorData = (data: any, name: string, statusMap: (val: number) => { status: string; color: string }) => {
+        // CoinAnk API typically returns array of data points
+        const items = Array.isArray(data) ? data : (data.data?.list || data.list || []);
+        if (items.length >= 2) {
+          const current = parseFloat(items[0].value || items[0].v || items[0]);
+          const yesterday = parseFloat(items[1].value || items[1].v || items[1]);
+          const { status, color } = statusMap(current);
+          return { name, value: current, yesterday, status, color };
+        } else if (items.length === 1) {
+          const current = parseFloat(items[0].value || items[0].v || items[0]);
+          const { status, color } = statusMap(current);
+          return { name, value: current, yesterday: current, status, color };
+        }
+        return null;
+      };
+
+      // Status determination functions
+      const ahr999Status = (val: number) => {
+        if (val < 0.45) return { status: 'Buy', color: 'emerald' };
+        if (val < 1.2) return { status: 'Accumulate', color: 'blue' };
+        return { status: 'Hold', color: 'gray' };
+      };
+      const puellStatus = (val: number) => {
+        if (val < 1) return { status: 'Accumulate', color: 'emerald' };
+        if (val < 2) return { status: 'Neutral', color: 'gray' };
+        return { status: 'Caution', color: 'gray' };
+      };
+      const piCycleStatus = (val: number) => {
+        return { status: val > 0.9 ? 'Caution' : 'Safe', color: val > 0.9 ? 'gray' : 'emerald' };
+      };
+      const twoYearMAStatus = (val: number) => {
+        if (val < 1) return { status: 'Buy', color: 'emerald' };
+        if (val < 1.5) return { status: 'Hold', color: 'blue' };
+        return { status: 'Sell', color: 'gray' };
+      };
+
+      const indicators = [
+        extractIndicatorData(ahr999Res.data, 'AHR999', ahr999Status),
+        extractIndicatorData(puellRes.data, 'Puell Multiple', puellStatus),
+        extractIndicatorData(piCycleRes.data, 'Pi-Cycle', piCycleStatus),
+        extractIndicatorData(twoYearMARes.data, '2Y MA Multiplier', twoYearMAStatus),
+      ].filter(Boolean);
+
+      return indicators;
+    } catch (e: any) {
+      console.error('Failed to fetch cycle indicators:', e.message || e);
+      return [];
+    }
+  };
+
+  // --- Fetch Long/Short Ratios (aggregate from multiple endpoints) ---
+  const fetchLongShortRatios = async (): Promise<any[]> => {
+    try {
+      const endTime = getEndTimeMs();
+      const exchangeName = exchange.charAt(0).toUpperCase() + exchange.slice(1);
+      const [topTraderRes, accountRes] = await Promise.all([
+        apiClient.get('/api/v1/coinank/long-short/top-trader', {
+          params: { symbol, exchange: exchangeName, interval: klineInterval, endTime, size: 24 }
+        }),
+        apiClient.get('/api/v1/coinank/long-short/account', {
+          params: { symbol, exchange: exchangeName, interval: klineInterval, endTime, size: 24 }
+        }),
+      ]);
+
+      // API returns: { data: { tss: [...], longShortRatio: [...] } }
+      const topTraderData = topTraderRes.data?.data || topTraderRes.data;
+      const accountData = accountRes.data?.data || accountRes.data;
+
+      // Convert to chart format
+      if (topTraderData?.tss && topTraderData?.longShortRatio) {
+        const mergedData = topTraderData.tss.map((ts: number, i: number) => ({
+          time: ts,
+          topTrader: topTraderData.longShortRatio[i] || 1,
+          retail: accountData?.longShortRatio?.[i] || topTraderData.longShortRatio[i] || 1,
+        }));
+        return mergedData;
+      }
+
+      return [];
+    } catch (e: any) {
+      console.error('Failed to fetch long/short ratios:', e.message || e);
+      return [];
+    }
+  };
+
   // --- Analytical Data Fetching ---
   const fetchAnalyticalData = async () => {
     try {
-      const endpoints = [
-        '/api/v1/coinank/open-interest/agg-kline',
-      ];
+      const endTime = getEndTimeMs();
+      const baseCoin = getBaseCoin(symbol);
 
-      const responses = await Promise.all(endpoints.map(url => axios.get(url)));
-      const [oi] = responses.map(r => r.data);
+      // Fetch endpoints with proper parameters
+      const [fg, cf, fh, oi, lo, hm] = await Promise.all([
+        apiClient.get('/api/v1/coinank/indicator/fear-greed'),
+        apiClient.get('/api/v1/coinank/capital-flow/history', {
+          params: { baseCoin, productType: 'SWAP', interval: klineInterval, endTime, size: 24 }
+        }),
+        apiClient.get('/api/v1/coinank/funding-rate/heatmap', {
+          params: { type: 'marketCap', interval: '1M' }
+        }),
+        apiClient.get('/api/v1/coinank/open-interest/agg-kline', {
+          params: { baseCoin: getBaseCoin(symbol), interval: klineInterval, endTime, size: 24 }
+        }),
+        // Note: liquidation/agg-map is disabled due to CoinAnk plan limitation
+        apiClient.get('/api/v1/coinank/large-order/market', {
+          params: { symbol, productType: 'SWAP', amount: 10000000, endTime, size: 10 }
+        }),
+        apiClient.get('/api/v1/coinank/order-book/heatmap', {
+          params: { symbol, exchange: exchange.charAt(0).toUpperCase() + exchange.slice(1), interval: '1m', endTime, size: 10 }
+        }),
+      ]);
 
-      setOiData(oi);
+      // Extract fear & greed data
+      // API returns: { success, code, data: { timeList: [...], cnnValueList: [...] } }
+      const fearGreedApiData = fg.data || fg;
+      if (fearGreedApiData?.cnnValueList?.length > 0) {
+        const latestValue = fearGreedApiData.cnnValueList[fearGreedApiData.cnnValueList.length - 1];
+        setFearGreed({ value: Math.round(latestValue), label: latestValue < 25 ? 'Extreme Fear' : latestValue < 50 ? 'Fear' : latestValue < 75 ? 'Greed' : 'Extreme Greed' });
+      }
+
+      // Extract capital flow data
+      // CoinAnk API 返回格式: { success: true, code: "1", data: [...] }
+      const capitalFlowData = Array.isArray(cf) ? cf : (Array.isArray(cf.data) ? cf.data : []);
+      setCapitalFlow(capitalFlowData);
+
+      // Extract funding heatmap data
+      // API returns: { success, code, data: { dateList, coinList, dataResult } }
+      if (fh.data?.dateList && fh.data?.coinList && fh.data?.dataResult) {
+        setFundingHeatmap(fh.data);
+      } else if (fh.dateList && fh.coinList && fh.dataResult) {
+        setFundingHeatmap(fh);
+      }
+
+      // Extract OI data
+      const oiData = Array.isArray(oi) ? oi : (oi.data?.list || []);
+      setOiData(oiData);
+
+      // Note: liquidation/agg-map endpoint is disabled due to CoinAnk plan limitation
+      setLiquidationData([]);
+
+      // Extract large orders
+      // API returns: { data: [{ exchangeName, baseCoin, side, price, tradeTurnover, ts, symbol }] }
+      const ordersRaw = lo.data || lo;
+      if (Array.isArray(ordersRaw) && ordersRaw.length > 0) {
+        const formattedOrders = ordersRaw.map((order: any, index: number) => ({
+          id: index,
+          symbol: order.symbol || 'BTCUSDT',
+          side: order.side || 'BUY',
+          amount: `$${(order.tradeTurnover / 1e6).toFixed(2)}M`,
+          time: new Date(order.ts).toLocaleTimeString(),
+          price: order.price?.toFixed(2) || '0',
+        }));
+        setLargeOrders(formattedOrders);
+      }
+
+      // Extract heatmap data
+      // API returns: { data: [{ ts, bids: { counts, prices }, asks: { counts, prices } }] }
+      const heatmapRaw = hm.data || hm;
+      if (Array.isArray(heatmapRaw) && heatmapRaw.length > 0) {
+        const formattedHeatmap = heatmapRaw.map((item: any) => ({
+          time: item.ts,
+          levels: [
+            ...(item.bids?.prices?.map((p: number, i: number) => ({
+              price: p,
+              intensity: (item.bids?.counts?.[i] || 0) / 1000,
+            })) || []),
+            ...(item.asks?.prices?.map((p: number, i: number) => ({
+              price: p,
+              intensity: (item.asks?.counts?.[i] || 0) / 1000,
+            })) || []),
+          ].sort((a, b) => a.price - b.price),
+        }));
+        setHeatmapData(formattedHeatmap);
+      }
+
+      // Fetch aggregated data separately
+      const [cycleIndicators, longShortRatios] = await Promise.all([
+        fetchCycleIndicators(),
+        fetchLongShortRatios(),
+      ]);
+
+      setCycleIndicators(cycleIndicators);
+      setLongShortData(longShortRatios);
+
     } catch (e: any) {
       console.error('Failed to fetch analytical data:', e.message || e, e.config?.url);
     }
@@ -110,7 +308,7 @@ export default function App() {
       fetchAnalyticalData();
     }, 30000); // Poll every 30s
     return () => clearInterval(intervalId);
-  }, [symbol, exchange]);
+  }, [symbol, exchange, klineInterval]);
 
   // --- Indicators Calculation ---
   const indicatorData = useMemo(() => {
@@ -171,7 +369,7 @@ export default function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`/api/klines`, {
+      const response = await apiClient.get(`/api/klines`, {
         params: { exchange, symbol, interval: klineInterval }
       });
       if (Array.isArray(response.data)) {
