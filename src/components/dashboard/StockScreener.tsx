@@ -6,6 +6,8 @@ import {
   Plus, 
   ChevronLeft, 
   ChevronRight, 
+  ChevronDown,
+  ChevronUp,
   Loader2, 
   Info,
   CheckCircle2,
@@ -39,6 +41,11 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
   const [logic, setLogic] = useState<'AND' | 'OR'>('AND');
   const [filters, setFilters] = useState<ScreenerFilter>({
     minVolume: 0,
+    maxVolume: undefined,
+    minPrice: undefined,
+    maxPrice: undefined,
+    minChange: undefined,
+    maxChange: undefined,
     excludeST: true,
     excludeSuspend: true
   });
@@ -46,6 +53,8 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(50);
+  const [sortBy, setSortBy] = useState<string>('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showIndicatorModal, setShowIndicatorModal] = useState<boolean>(false);
 
   // Initial fetch
@@ -111,7 +120,7 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
     setActiveIndicators(newIndicators);
   };
 
-  const handleScan = async (newPage = 1) => {
+  const handleScan = async (newPage = 1, newSortBy = sortBy, newSortOrder = sortOrder) => {
     setLoading(true);
     try {
       const response = await axios.post('/api/screener/scan', {
@@ -120,15 +129,24 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
         indicators: activeIndicators,
         filter: filters,
         limit: pageSize,
-        offset: (newPage - 1) * pageSize
+        offset: (newPage - 1) * pageSize,
+        sortBy: newSortBy,
+        sortOrder: newSortOrder
       });
       setScanResult(response.data);
       setPage(newPage);
+      setSortBy(newSortBy);
+      setSortOrder(newSortOrder);
     } catch (error) {
       console.error('Scan failed:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSort = (field: string) => {
+    const newOrder = sortBy === field && sortOrder === 'desc' ? 'asc' : 'desc';
+    handleScan(1, field, newOrder);
   };
 
   const resetConditions = () => {
@@ -137,9 +155,16 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
     }
     setFilters({
       minVolume: 0,
+      maxVolume: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      minChange: undefined,
+      maxChange: undefined,
       excludeST: true,
       excludeSuspend: true
     });
+    setSortBy('');
+    setSortOrder('desc');
   };
 
   const formatVolume = (vol: number) => {
@@ -323,14 +348,68 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
                   <input type="checkbox" className="hidden" checked={filters.excludeSuspend} onChange={(e) => setFilters({...filters, excludeSuspend: e.target.checked})} />
                   <span className="text-xs text-white/70">{t.excludeSuspend}</span>
                 </label>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] text-white/40 uppercase font-bold">{t.minVolume} (手)</label>
-                  <input 
-                    type="number"
-                    value={filters.minVolume}
-                    onChange={(e) => setFilters({...filters, minVolume: parseInt(e.target.value) || 0})}
-                    className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
-                  />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-white/40 uppercase font-bold">{t.minPrice}</label>
+                    <input 
+                      type="number"
+                      value={filters.minPrice || ''}
+                      onChange={(e) => setFilters({...filters, minPrice: parseFloat(e.target.value) || undefined})}
+                      className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-white/40 uppercase font-bold">{t.maxPrice}</label>
+                    <input 
+                      type="number"
+                      value={filters.maxPrice || ''}
+                      onChange={(e) => setFilters({...filters, maxPrice: parseFloat(e.target.value) || undefined})}
+                      className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-white/40 uppercase font-bold">{t.minChange}</label>
+                    <input 
+                      type="number"
+                      value={filters.minChange || ''}
+                      onChange={(e) => setFilters({...filters, minChange: parseFloat(e.target.value) || undefined})}
+                      className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-white/40 uppercase font-bold">{t.maxChange}</label>
+                    <input 
+                      type="number"
+                      value={filters.maxChange || ''}
+                      onChange={(e) => setFilters({...filters, maxChange: parseFloat(e.target.value) || undefined})}
+                      className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-white/40 uppercase font-bold">{t.minVolume} (手)</label>
+                    <input 
+                      type="number"
+                      value={filters.minVolume || ''}
+                      onChange={(e) => setFilters({...filters, minVolume: parseInt(e.target.value) || 0})}
+                      className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-white/40 uppercase font-bold">{t.maxVolume} (手)</label>
+                    <input 
+                      type="number"
+                      value={filters.maxVolume || ''}
+                      onChange={(e) => setFilters({...filters, maxVolume: parseInt(e.target.value) || undefined})}
+                      className="w-full bg-black border border-white/10 rounded px-3 py-2 text-xs focus:outline-none focus:border-red-500/30"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -404,9 +483,33 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
                 <tr className="border-bottom border-white/10 bg-white/5">
                   <th className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider">{t.code}</th>
                   <th className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider">{t.name}</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider text-right">{t.close}</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider text-right">{t.changePercent}</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider text-right">{t.volume}</th>
+                  <th 
+                    className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider text-right cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('close')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      {t.close}
+                      {sortBy === 'close' && (sortOrder === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider text-right cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('changePercent')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      {t.changePercent}
+                      {sortBy === 'changePercent' && (sortOrder === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider text-right cursor-pointer hover:text-white transition-colors"
+                    onClick={() => handleSort('volume')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      {t.volume}
+                      {sortBy === 'volume' && (sortOrder === 'desc' ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />)}
+                    </div>
+                  </th>
                   <th className="px-6 py-4 text-[10px] font-bold text-white/40 uppercase tracking-wider">{t.indicators}</th>
                 </tr>
               </thead>

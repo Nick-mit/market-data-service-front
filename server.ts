@@ -224,22 +224,24 @@ async function startServer() {
 
   // 11. Stock Screener - Scan
   apiRouter.post("/screener/scan", (req, res) => {
-    const { limit = 50, offset = 0 } = req.body;
-    const total = 128;
-    const results = Array.from({ length: Math.min(limit as number, total - (offset as number)) }).map((_, i) => {
-      const id = (offset as number) + i + 1;
+    const { limit = 50, offset = 0, sortBy, sortOrder, filter } = req.body;
+    
+    // Generate full list first to allow sorting and filtering
+    let allResults = Array.from({ length: 200 }).map((_, i) => {
+      const id = i + 1;
       const code = `${String(id).padStart(6, '0')}.${Math.random() > 0.5 ? 'SZ' : 'SH'}`;
       const names = ["平安银行", "万科A", "中信证券", "格力电器", "美的集团", "招商银行", "五粮液", "贵州茅台", "伊利股份", "海康威视"];
       const name = names[id % names.length];
       const close = 10 + Math.random() * 100;
       const changePercent = (Math.random() - 0.4) * 10;
+      const volume = Math.floor(Math.random() * 10000000);
       
       return {
         code,
         name,
         close: parseFloat(close.toFixed(2)),
         changePercent: parseFloat(changePercent.toFixed(2)),
-        volume: Math.floor(Math.random() * 10000000),
+        volume,
         amount: Math.floor(Math.random() * 100000000),
         tradeDate: new Date().toISOString().split('T')[0],
         matched: true,
@@ -260,11 +262,34 @@ async function startServer() {
       };
     });
 
+    // Apply Filters
+    if (filter) {
+      if (filter.minPrice) allResults = allResults.filter(r => r.close >= filter.minPrice);
+      if (filter.maxPrice) allResults = allResults.filter(r => r.close <= filter.maxPrice);
+      if (filter.minChange) allResults = allResults.filter(r => r.changePercent >= filter.minChange);
+      if (filter.maxChange) allResults = allResults.filter(r => r.changePercent <= filter.maxChange);
+      if (filter.minVolume) allResults = allResults.filter(r => r.volume >= filter.minVolume);
+      if (filter.maxVolume) allResults = allResults.filter(r => r.volume <= filter.maxVolume);
+    }
+
+    // Apply Sorting
+    if (sortBy) {
+      allResults.sort((a: any, b: any) => {
+        const valA = a[sortBy];
+        const valB = b[sortBy];
+        if (sortOrder === 'asc') return valA > valB ? 1 : -1;
+        return valA < valB ? 1 : -1;
+      });
+    }
+
+    const total = allResults.length;
+    const results = allResults.slice(offset, offset + limit);
+
     res.json({
       total,
       scanTime: new Date().toISOString(),
       market: "astock",
-      duration: 2300000000,
+      duration: 500000000 + Math.random() * 500000000,
       conditions: req.body,
       results
     });

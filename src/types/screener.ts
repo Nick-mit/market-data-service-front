@@ -6,6 +6,11 @@ export interface IndicatorConfig {
 
 export interface ScreenerFilter {
   minVolume: number;
+  maxVolume?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  minChange?: number;
+  maxChange?: number;
   excludeST: boolean;
   excludeSuspend: boolean;
 }
