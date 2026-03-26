@@ -87,22 +87,10 @@ async function startServer() {
           volume: parseFloat(d.v),
         }));
       } else {
-        // Mock data generator for Aster/Weex
-        const now = Math.floor(Date.now() / 1000);
-        const intervalSec = interval === "1m" ? 60 : interval === "1h" ? 3600 : 86400;
-        let lastPrice = 65000 + Math.random() * 1000;
-        data = Array.from({ length: parseInt(limit as string) }).map((_, i) => {
-          const open = lastPrice;
-          const close = open + (Math.random() - 0.5) * 200;
-          const high = Math.max(open, close) + Math.random() * 50;
-          const low = Math.min(open, close) - Math.random() * 50;
-          lastPrice = close;
-          return {
-            time: now - (parseInt(limit as string) - i) * intervalSec,
-            open, high, low, close,
-            volume: Math.random() * 100
-          };
-        });
+        // Exchange not supported - return empty data
+        console.warn(`Exchange ${exchange} not supported`);
+        res.status(400).json({ error: `Exchange ${exchange} not supported` });
+        return;
       }
 
       res.json(data);
@@ -112,253 +100,128 @@ async function startServer() {
     }
   });
 
+  // ============================================
+  // CoinAnk API - Proxy to Backend (No Mock Data)
+  // ============================================
+
+  // Helper function to proxy CoinAnk requests to backend
+  const proxyCoinAnkRequest = async (endpoint: string, req: express.Request, res: express.Response) => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}${endpoint}`, {
+        headers: { "X-API-Key": API_KEY },
+        params: req.query
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error(`CoinAnk API error (${endpoint}):`, error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Backend unavailable",
+        endpoint,
+        message: error.response?.data || error.message
+      });
+    }
+  };
+
   // 1. Fear & Greed Index
   apiRouter.get("/v1/coinank/indicator/fear-greed", (req, res) => {
-    res.json({ value: 65 + Math.floor(Math.random() * 10), label: "Greed", timestamp: Date.now() });
+    proxyCoinAnkRequest("/api/v1/coinank/indicator/fear-greed", req, res);
   });
 
   // 2. Capital Flow History
   apiRouter.get("/v1/coinank/capital-flow/history", (req, res) => {
-    const data = Array.from({ length: 24 }).map((_, i) => ({
-      time: Date.now() - (24 - i) * 3600000,
-      netFlow: (Math.random() - 0.4) * 500,
-      price: 60000 + Math.random() * 5000
-    }));
-    res.json(data);
+    proxyCoinAnkRequest("/api/v1/coinank/capital-flow/history", req, res);
   });
 
-  // 3. Cycle Indicators
+  // 3. Cycle Indicators - Backend does not have this endpoint
   apiRouter.get("/v1/coinank/cycle-indicators", (req, res) => {
-    res.json([
-      { name: "ahr999", value: 1.25, yesterday: 1.20, status: "Invest", color: "emerald" },
-      { name: "Pi-Cycle", value: 0.85, yesterday: 0.84, status: "Accumulate", color: "blue" },
-      { name: "Puell Multiple", value: 1.12, yesterday: 1.15, status: "Neutral", color: "gray" },
-      { name: "2Y MA Multiplier", value: 0.95, yesterday: 0.96, status: "Buy", color: "emerald" }
-    ]);
+    res.status(404).json({ error: "Not implemented", message: "This endpoint is not available on backend" });
   });
 
   // 4. Funding Rate Heatmap
   apiRouter.get("/v1/coinank/funding-rate/heatmap", (req, res) => {
-    const coins = ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "AVAX", "DOT"];
-    const times = Array.from({ length: 12 }).map((_, i) => i + "h ago");
-    const data = coins.map(coin => ({
-      coin,
-      values: times.map(() => (Math.random() * 0.02 - 0.005).toFixed(4))
-    }));
-    res.json({ coins, times, data });
+    proxyCoinAnkRequest("/api/v1/coinank/funding-rate/heatmap", req, res);
   });
 
-  // 5. Open Interest Aggregated
+  // 5. Open Interest Aggregated Kline
   apiRouter.get("/v1/coinank/open-interest/agg-kline", (req, res) => {
-    const data = Array.from({ length: 50 }).map((_, i) => ({
-      time: Date.now() - (50 - i) * 3600000,
-      oi: 15000 + Math.random() * 2000,
-      price: 60000 + Math.random() * 5000
-    }));
-    res.json(data);
+    proxyCoinAnkRequest("/api/v1/coinank/open-interest/agg-kline", req, res);
   });
 
   // 6. Liquidation Map
   apiRouter.get("/v1/coinank/liquidation/agg-map", (req, res) => {
-    const currentPrice = 65000;
-    const data = Array.from({ length: 40 }).map((_, i) => {
-      const price = currentPrice - 2000 + i * 100;
-      return {
-        price,
-        amount: Math.random() * 50,
-        type: price > currentPrice ? "short" : "long"
-      };
-    });
-    res.json(data);
+    proxyCoinAnkRequest("/api/v1/coinank/liquidation/agg-map", req, res);
   });
 
   // 7. Orderbook Heatmap
   apiRouter.get("/v1/coinank/order-book/heatmap", (req, res) => {
-    const currentPrice = 65000;
-    const priceLevels = Array.from({ length: 20 }).map((_, i) => currentPrice - 500 + i * 50);
-    const timeSteps = Array.from({ length: 30 }).map((_, i) => i);
-    const heatmap = timeSteps.map(t => ({
-      time: t,
-      levels: priceLevels.map(p => ({
-        price: p,
-        intensity: Math.random()
-      }))
-    }));
-    res.json(heatmap);
+    proxyCoinAnkRequest("/api/v1/coinank/order-book/heatmap", req, res);
   });
 
-  // 8. Long/Short Ratios
+  // 8. Long/Short Ratios - Backend has different endpoints
   apiRouter.get("/v1/coinank/long-short/ratios", (req, res) => {
-    const data = Array.from({ length: 24 }).map((_, i) => ({
-      time: Date.now() - (24 - i) * 3600000,
-      topTrader: 1.2 + Math.random() * 0.5,
-      retail: 0.8 + Math.random() * 0.4
-    }));
-    res.json(data);
+    res.status(404).json({ error: "Not implemented", message: "Use /v1/coinank/long-short/top-trader instead" });
   });
 
   // 9. Large Orders
   apiRouter.get("/v1/coinank/large-order/market", (req, res) => {
-    const orders = [
-      { id: 1, symbol: "BTCUSDT", side: "BUY", amount: "1.2M", time: "12:05:01", price: "65230" },
-      { id: 2, symbol: "ETHUSDT", side: "SELL", amount: "850K", time: "12:04:45", price: "3450" },
-      { id: 3, symbol: "SOLUSDT", side: "BUY", amount: "2.1M", time: "12:04:12", price: "145.2" },
-      { id: 4, symbol: "BTCUSDT", side: "SELL", amount: "3.5M", time: "12:03:55", price: "65190" },
-    ];
-    res.json(orders);
+    proxyCoinAnkRequest("/api/v1/coinank/large-order/market", req, res);
   });
 
-  // 10. Tushare Smart Money (Northbound Funds)
+  // 10. Tushare Smart Money - Backend does not have this endpoint
   apiRouter.get("/v1/tushare/smart-money", (req, res) => {
-    const data = Array.from({ length: 30 }).map((_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (30 - i));
-      return {
-        date: date.toISOString().split('T')[0],
-        index: 3000 + Math.sin(i / 5) * 200 + Math.random() * 50,
-        inflow: (Math.random() - 0.4) * 5000 // Net inflow in Millions
-      };
-    });
-    res.json(data);
+    res.status(404).json({ error: "Not implemented", message: "This endpoint is not available on backend" });
   });
 
-  // 11. Stock Screener - Scan
-  apiRouter.post("/screener/scan", (req, res) => {
-    const { limit = 50, offset = 0, sortBy, sortOrder, filter } = req.body;
-    
-    // Generate full list first to allow sorting and filtering
-    let allResults = Array.from({ length: 200 }).map((_, i) => {
-      const id = i + 1;
-      const code = `${String(id).padStart(6, '0')}.${Math.random() > 0.5 ? 'SZ' : 'SH'}`;
-      const names = ["平安银行", "万科A", "中信证券", "格力电器", "美的集团", "招商银行", "五粮液", "贵州茅台", "伊利股份", "海康威视"];
-      const name = names[id % names.length];
-      const close = 10 + Math.random() * 100;
-      const changePercent = (Math.random() - 0.4) * 10;
-      const volume = Math.floor(Math.random() * 10000000);
-      
-      return {
-        code,
-        name,
-        close: parseFloat(close.toFixed(2)),
-        changePercent: parseFloat(changePercent.toFixed(2)),
-        volume,
-        amount: Math.floor(Math.random() * 100000000),
-        tradeDate: new Date().toISOString().split('T')[0],
-        matched: true,
-        indicators: {
-          rsi: {
-            name: "rsi",
-            values: { value: 20 + Math.random() * 20 },
-            signals: ["oversold"],
-            extra: {}
-          },
-          macd: {
-            name: "macd",
-            values: { dif: 0.12, dea: 0.08, macd: 0.08 },
-            signals: ["golden_cross"],
-            extra: {}
-          }
-        }
-      };
-    });
+  // Backend API base URL and auth key
+  const BACKEND_URL = "http://localhost:3101";
+  const API_KEY = "7fXZt817QOeBr4H2XH/mDmhKO+2yybe1prDYDSg4HOD8gC7qeiZBfscuZgtMnVOK";
 
-    // Apply Filters
-    if (filter) {
-      if (filter.minPrice) allResults = allResults.filter(r => r.close >= filter.minPrice);
-      if (filter.maxPrice) allResults = allResults.filter(r => r.close <= filter.maxPrice);
-      if (filter.minChange) allResults = allResults.filter(r => r.changePercent >= filter.minChange);
-      if (filter.maxChange) allResults = allResults.filter(r => r.changePercent <= filter.maxChange);
-      if (filter.minVolume) allResults = allResults.filter(r => r.volume >= filter.minVolume);
-      if (filter.maxVolume) allResults = allResults.filter(r => r.volume <= filter.maxVolume);
-    }
-
-    // Apply Sorting
-    if (sortBy) {
-      allResults.sort((a: any, b: any) => {
-        const valA = a[sortBy];
-        const valB = b[sortBy];
-        if (sortOrder === 'asc') return valA > valB ? 1 : -1;
-        return valA < valB ? 1 : -1;
+  // 11. Stock Screener - Scan (forward to backend)
+  apiRouter.post("/screener/scan", async (req, res) => {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/api/v1/stock/screener/scan`, req.body, {
+        headers: { "X-API-Key": API_KEY }
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Screener scan error:", error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to scan stocks",
+        message: error.response?.data || error.message
       });
     }
-
-    const total = allResults.length;
-    const results = allResults.slice(offset, offset + limit);
-
-    res.json({
-      total,
-      scanTime: new Date().toISOString(),
-      market: "astock",
-      duration: 500000000 + Math.random() * 500000000,
-      conditions: req.body,
-      results
-    });
   });
 
-  // 12. Stock Screener - Templates
-  apiRouter.get("/screener/templates", (req, res) => {
-    res.json({
-      templates: [
-        {
-          id: "rsi_oversold",
-          name: "RSI超卖",
-          description: "RSI低于30，超卖反弹机会",
-          logic: "AND",
-          indicators: [
-            { name: "rsi", params: { period: 14 }, condition: { value: "<=30" } }
-          ]
-        },
-        {
-          id: "macd_golden_cross",
-          name: "MACD金叉",
-          description: "MACD DIF上穿DEA，买入信号",
-          indicators: [
-            { name: "macd", params: {}, condition: { signal: "golden_cross" } }
-          ]
-        },
-        {
-          id: "volume_breakout",
-          name: "放量突破",
-          description: "成交量放大2倍以上",
-          indicators: [
-            { name: "volume", params: { period: 5 }, condition: { ratio: ">=2.0" } }
-          ]
-        },
-        {
-          id: "rsi_macd_combo",
-          name: "RSI超卖+MACD金叉",
-          description: "双信号共振，更强买入信号",
-          logic: "AND",
-          indicators: [
-            { name: "rsi", params: { period: 14 }, condition: { value: "<=30" } },
-            { name: "macd", params: {}, condition: { signal: "golden_cross" } }
-          ]
-        }
-      ]
-    });
+  // 12. Stock Screener - Templates (proxy to backend)
+  apiRouter.get("/screener/templates", async (req, res) => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/v1/stock/screener/templates`, {
+        headers: { "X-API-Key": API_KEY }
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Failed to fetch templates:", error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to fetch templates",
+        message: error.response?.data || error.message
+      });
+    }
   });
 
-  // 13. Stock Screener - Indicators
-  apiRouter.get("/screener/indicators", (req, res) => {
-    res.json({
-      indicators: [
-        {
-          name: "rsi",
-          description: "相对强弱指标",
-          params: { period: 14 }
-        },
-        {
-          name: "macd",
-          description: "指数平滑异同移动平均线",
-          params: { fast: 12, slow: 26, signal: 9 }
-        },
-        {
-          name: "volume",
-          description: "成交量分析",
-          params: { period: 5 }
-        }
-      ]
-    });
+  // 13. Stock Screener - Indicators (proxy to backend)
+  apiRouter.get("/screener/indicators", async (req, res) => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/v1/stock/screener/indicators`, {
+        headers: { "X-API-Key": API_KEY }
+      });
+      res.json(response.data);
+    } catch (error: any) {
+      console.error("Failed to fetch indicators:", error.message);
+      res.status(error.response?.status || 500).json({
+        error: "Failed to fetch indicators",
+        message: error.response?.data || error.message
+      });
+    }
   });
 
   app.use("/api", apiRouter);

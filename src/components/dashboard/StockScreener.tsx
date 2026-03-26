@@ -525,7 +525,7 @@ export const StockScreener: React.FC<StockScreenerProps> = ({ language }) => {
                   </tr>
                 )}
                 
-                {scanResult?.results.map((stock, i) => (
+                {(scanResult?.results ?? []).map((stock, i) => (
                   <motion.tr 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
