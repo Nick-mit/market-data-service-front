@@ -223,140 +223,178 @@ async function startServer() {
   });
 
   // 11. Stock Screener - Scan
-  apiRouter.post("/screener/scan", (req, res) => {
-    const { limit = 50, offset = 0, sortBy, sortOrder, filter } = req.body;
+  apiRouter.post("/v1/stock/cnstock/screener", (req, res) => {
+    const { pagination = { page: 1, size: 20 }, sort = { field: 'rs', order: 'desc' } } = req.body;
+    const { page, size } = pagination;
     
     // Generate full list first to allow sorting and filtering
-    let allResults = Array.from({ length: 200 }).map((_, i) => {
+    let allItems = Array.from({ length: 128 }).map((_, i) => {
       const id = i + 1;
-      const code = `${String(id).padStart(6, '0')}.${Math.random() > 0.5 ? 'SZ' : 'SH'}`;
+      const tsCode = `${String(id).padStart(6, '0')}.${Math.random() > 0.5 ? 'SZ' : 'SH'}`;
       const names = ["平安银行", "万科A", "中信证券", "格力电器", "美的集团", "招商银行", "五粮液", "贵州茅台", "伊利股份", "海康威视"];
+      const industries = ["银行", "房地产", "证券", "家电", "白酒", "食品", "安防"];
       const name = names[id % names.length];
+      const industry = industries[id % industries.length];
       const close = 10 + Math.random() * 100;
-      const changePercent = (Math.random() - 0.4) * 10;
-      const volume = Math.floor(Math.random() * 10000000);
+      const changeRate = (Math.random() - 0.4) * 10;
+      const marketCap = 50 + Math.random() * 5000;
       
       return {
-        code,
+        tsCode,
         name,
+        industry,
         close: parseFloat(close.toFixed(2)),
-        changePercent: parseFloat(changePercent.toFixed(2)),
-        volume,
-        amount: Math.floor(Math.random() * 100000000),
-        tradeDate: new Date().toISOString().split('T')[0],
-        matched: true,
-        indicators: {
-          rsi: {
-            name: "rsi",
-            values: { value: 20 + Math.random() * 20 },
-            signals: ["oversold"],
-            extra: {}
-          },
-          macd: {
-            name: "macd",
-            values: { dif: 0.12, dea: 0.08, macd: 0.08 },
-            signals: ["golden_cross"],
-            extra: {}
-          }
+        changeRate: parseFloat(changeRate.toFixed(2)),
+        marketCap: parseFloat(marketCap.toFixed(2)),
+        fundamental: { 
+          roe: parseFloat((5 + Math.random() * 20).toFixed(1)), 
+          peTtm: parseFloat((5 + Math.random() * 50).toFixed(1)), 
+          pb: parseFloat((0.5 + Math.random() * 5).toFixed(1)) 
+        },
+        liquidity: { 
+          turnoverRate: parseFloat((0.5 + Math.random() * 10).toFixed(1)), 
+          amount: Math.floor(Math.random() * 500000), 
+          northRatio: parseFloat((0.1 + Math.random() * 5).toFixed(1)), 
+          northNetBuy: Math.floor((Math.random() - 0.3) * 10000) 
+        },
+        technical: { 
+          ma50: parseFloat((close * (0.9 + Math.random() * 0.2)).toFixed(2)), 
+          ma200: parseFloat((close * (0.8 + Math.random() * 0.4)).toFixed(2)), 
+          maTrend: Math.random() > 0.5 ? "bullish" : "bearish", 
+          rs: Math.floor(Math.random() * 100), 
+          volumeRatio: parseFloat((0.5 + Math.random() * 5).toFixed(1)), 
+          volumeBreakout: Math.random() > 0.8 
         }
       };
     });
 
-    // Apply Filters
-    if (filter) {
-      if (filter.minPrice) allResults = allResults.filter(r => r.close >= filter.minPrice);
-      if (filter.maxPrice) allResults = allResults.filter(r => r.close <= filter.maxPrice);
-      if (filter.minChange) allResults = allResults.filter(r => r.changePercent >= filter.minChange);
-      if (filter.maxChange) allResults = allResults.filter(r => r.changePercent <= filter.maxChange);
-      if (filter.minVolume) allResults = allResults.filter(r => r.volume >= filter.minVolume);
-      if (filter.maxVolume) allResults = allResults.filter(r => r.volume <= filter.maxVolume);
-    }
-
     // Apply Sorting
-    if (sortBy) {
-      allResults.sort((a: any, b: any) => {
-        const valA = a[sortBy];
-        const valB = b[sortBy];
-        if (sortOrder === 'asc') return valA > valB ? 1 : -1;
+    if (sort.field) {
+      allItems.sort((a: any, b: any) => {
+        let valA, valB;
+        if (['roe', 'peTtm', 'pb'].includes(sort.field)) {
+          valA = a.fundamental[sort.field];
+          valB = b.fundamental[sort.field];
+        } else if (['turnoverRate', 'amount', 'northRatio'].includes(sort.field)) {
+          valA = a.liquidity[sort.field];
+          valB = b.liquidity[sort.field];
+        } else if (['rs', 'volumeRatio'].includes(sort.field)) {
+          valA = a.technical[sort.field];
+          valB = b.technical[sort.field];
+        } else {
+          valA = a[sort.field];
+          valB = b[sort.field];
+        }
+        
+        if (sort.order === 'asc') return valA > valB ? 1 : -1;
         return valA < valB ? 1 : -1;
       });
     }
 
-    const total = allResults.length;
-    const results = allResults.slice(offset, offset + limit);
+    const total = allItems.length;
+    const items = allItems.slice((page - 1) * size, page * size);
 
     res.json({
-      total,
-      scanTime: new Date().toISOString(),
-      market: "astock",
-      duration: 500000000 + Math.random() * 500000000,
-      conditions: req.body,
-      results
+      code: 0,
+      msg: "success",
+      data: {
+        total,
+        tradeDate: new Date().toISOString().split('T')[0],
+        scanTime: new Date().toISOString(),
+        durationMs: 2300,
+        pagination: {
+          page,
+          size,
+          total,
+          totalPages: Math.ceil(total / size)
+        },
+        summary: {
+          totalStocks: 5200,
+          industryPassed: 3200,
+          fundamentalPassed: 850,
+          liquidityPassed: 320,
+          technicalPassed: 128
+        },
+        items
+      }
     });
   });
 
-  // 12. Stock Screener - Templates
-  apiRouter.get("/screener/templates", (req, res) => {
+  // 12. Stock Screener - Presets
+  apiRouter.get("/v1/stock/cnstock/screener/presets", (req, res) => {
     res.json({
-      templates: [
-        {
-          id: "rsi_oversold",
-          name: "RSI超卖",
-          description: "RSI低于30，超卖反弹机会",
-          logic: "AND",
-          indicators: [
-            { name: "rsi", params: { period: 14 }, condition: { value: "<=30" } }
-          ]
+      code: 0,
+      msg: "success",
+      data: [
+        { 
+          id: "value_growth", 
+          name: "价值成长", 
+          description: "ROE>15%连续3年 + PE<30 + PB<3 + 北向持股",
+          config: {
+            fundamental: { roe: { min: 15, years: 3 }, pe: { max: 30 }, pb: { max: 3 } },
+            liquidity: { northHold: { ratioMin: 1 } }
+          }
         },
-        {
-          id: "macd_golden_cross",
-          name: "MACD金叉",
-          description: "MACD DIF上穿DEA，买入信号",
-          indicators: [
-            { name: "macd", params: {}, condition: { signal: "golden_cross" } }
-          ]
+        { 
+          id: "momentum", 
+          name: "动量突破", 
+          description: "均线多头 + RS>80 + 放量突破",
+          config: {
+            technical: { ma: { trend: "bullish" }, rs: { min: 80 }, volume: { breakout: true } }
+          }
         },
-        {
-          id: "volume_breakout",
-          name: "放量突破",
-          description: "成交量放大2倍以上",
-          indicators: [
-            { name: "volume", params: { period: 5 }, condition: { ratio: ">=2.0" } }
-          ]
+        { 
+          id: "north_follow", 
+          name: "北向跟投", 
+          description: "北向持股>2% + 北向净买入 + 活跃成交",
+          config: {
+            liquidity: { northHold: { ratioMin: 2, netBuy: true }, turnoverRate: { min: 3 } }
+          }
         },
-        {
-          id: "rsi_macd_combo",
-          name: "RSI超卖+MACD金叉",
-          description: "双信号共振，更强买入信号",
-          logic: "AND",
-          indicators: [
-            { name: "rsi", params: { period: 14 }, condition: { value: "<=30" } },
-            { name: "macd", params: {}, condition: { signal: "golden_cross" } }
-          ]
+        { 
+          id: "undervalued_bluechip", 
+          name: "低估值蓝筹", 
+          description: "PE<15 + PB<1.5 + 市值>500亿 + 均线多头",
+          config: {
+            marketCap: { min: 500 },
+            fundamental: { pe: { max: 15 }, pb: { max: 1.5 } },
+            technical: { ma: { trend: "bullish" } }
+          }
+        },
+        { 
+          id: "small_cap_growth", 
+          name: "小盘成长", 
+          description: "市值<200亿 + 换手率>3% + RS>70",
+          config: {
+            marketCap: { max: 200 },
+            liquidity: { turnoverRate: { min: 3 } },
+            technical: { rs: { min: 70 } }
+          }
         }
       ]
     });
   });
 
-  // 13. Stock Screener - Indicators
-  apiRouter.get("/screener/indicators", (req, res) => {
+  // 13. Stock Screener - Industries
+  apiRouter.get("/v1/stock/cnstock/screener/industries", (req, res) => {
     res.json({
-      indicators: [
-        {
-          name: "rsi",
-          description: "相对强弱指标",
-          params: { period: 14 }
-        },
-        {
-          name: "macd",
-          description: "指数平滑异同移动平均线",
-          params: { fast: 12, slow: 26, signal: 9 }
-        },
-        {
-          name: "volume",
-          description: "成交量分析",
-          params: { period: 5 }
-        }
+      code: 0,
+      msg: "success",
+      data: ["银行", "房地产", "证券", "家电", "白酒", "食品", "安防", "半导体", "新能源", "生物医药"]
+    });
+  });
+
+  // 14. Stock Screener - Indexes
+  apiRouter.get("/v1/stock/cnstock/screener/indexes", (req, res) => {
+    res.json({
+      code: 0,
+      msg: "success",
+      data: [
+        { code: "000300.SH", name: "沪深300" },
+        { code: "000001.SH", name: "上证指数" },
+        { code: "399001.SZ", name: "深证成指" },
+        { code: "399006.SZ", name: "创业板指" },
+        { code: "000016.SH", name: "上证50" }
       ]
     });
   });
