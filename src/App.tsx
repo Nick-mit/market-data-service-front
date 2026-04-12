@@ -15,7 +15,12 @@ import {
 } from 'lucide-react';
 
 // Dashboard Components
+import FearGreedGauge from './components/dashboard/FearGreedGauge';
+import CapitalFlowChart from './components/dashboard/CapitalFlowChart';
 import FundingRateHeatmap from './components/dashboard/FundingRateHeatmap';
+import LiquidationMap from './components/dashboard/LiquidationMap';
+import OrderbookHeatmap from './components/dashboard/OrderbookHeatmap';
+import LargeOrdersTicker from './components/dashboard/LargeOrdersTicker';
 import { StockScreener } from './components/dashboard/StockScreener';
 
 import { translations, Language } from './translations';
@@ -84,30 +89,68 @@ export default function App() {
 
   // Analytical Data State
   const [oiData, setOiData] = useState<any[]>([]);
+  const [fearGreedData, setFearGreedData] = useState<any>(null);
+  const [capitalFlowData, setCapitalFlowData] = useState<any[]>([]);
+  const [fundingRateData, setFundingRateData] = useState<any>(null);
+  const [liquidationData, setLiquidationData] = useState<any[]>([]);
+  const [orderbookData, setOrderbookData] = useState<any>(null);
+  const [largeOrderData, setLargeOrderData] = useState<any>(null);
 
   // --- Health Check ---
   useEffect(() => {
-    axios.get('/health')
+    axios.get('/api/v1/health')
       .then(r => console.log('Backend Health Check:', r.data))
       .catch(e => console.error('Backend Health Check Failed:', e.message));
   }, []);
 
   // --- Analytical Data Fetching ---
   const fetchAnalyticalData = async () => {
-    if (activeBoard === 'crypto') {
-      try {
-        const endpoints = [
-          '/api/v1/coinank/open-interest/agg-kline',
-        ];
+    if (activeBoard !== 'crypto') return;
 
-        const responses = await Promise.all(endpoints.map(url => axios.get(url)));
-        const [oi] = responses.map(r => r.data);
+    const fetchers: [string, () => Promise<void>][] = [
+      ['/api/v2/crypto/open-interest/agg-kline', async () => {
+        const r = await axios.get('/api/v2/crypto/open-interest/agg-kline');
+        setOiData(r.data);
+      }],
+      ['/api/v2/crypto/indicator/fear-greed', async () => {
+        const r = await axios.get('/api/v2/crypto/indicator/fear-greed');
+        setFearGreedData(r.data);
+      }],
+      ['/api/v2/crypto/capital-flow/history', async () => {
+        const baseCoin = symbol.replace(/USDT$/, '');
+        const r = await axios.get('/api/v2/crypto/capital-flow/history', {
+          params: { baseCoin, productType: 'SWAP', interval: klineInterval, size: 100 }
+        });
+        setCapitalFlowData(r.data?.data || r.data || []);
+      }],
+      ['/api/v2/crypto/funding-rate/heatmap', async () => {
+        const r = await axios.get('/api/v2/crypto/funding-rate/heatmap');
+        setFundingRateData(r.data);
+      }],
+      ['/api/v2/crypto/liquidation/agg-map', async () => {
+        const baseCoin = symbol.replace(/USDT$/, '');
+        const r = await axios.get('/api/v2/crypto/liquidation/agg-map', {
+          params: { baseCoin, interval: '1d' }
+        });
+        setLiquidationData(r.data?.data || r.data || []);
+      }],
+      ['/api/v2/crypto/order-book/heatmap', async () => {
+        const r = await axios.get('/api/v2/crypto/order-book/heatmap', {
+          params: { exchange, symbol, interval: klineInterval, size: 100 }
+        });
+        setOrderbookData(r.data);
+      }],
+      ['/api/v2/crypto/large-order/market', async () => {
+        const r = await axios.get('/api/v2/crypto/large-order/market', {
+          params: { symbol, productType: 'SWAP', amount: 100000, size: 20 }
+        });
+        setLargeOrderData(r.data);
+      }],
+    ];
 
-        setOiData(oi);
-      } catch (e: any) {
-        console.error('Failed to fetch analytical data:', e.message || e, e.config?.url);
-      }
-    }
+    await Promise.all(fetchers.map(([url, fn]) =>
+      fn().catch((e: any) => console.error(`Failed to fetch ${url}:`, e.message))
+    ));
   };
 
   useEffect(() => {
@@ -177,11 +220,12 @@ export default function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`/api/klines`, {
+      const response = await axios.get('/api/v2/crypto/klines', {
         params: { exchange, symbol, interval: klineInterval }
       });
-      if (Array.isArray(response.data)) {
-        setData(response.data);
+      const klines = response.data?.data || response.data;
+      if (Array.isArray(klines)) {
+        setData(klines);
       }
     } catch (error: any) {
       console.error('Fetch error:', error.message || error);
@@ -660,6 +704,64 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            </section>
+
+            {/* Dashboard Analytics */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-2">
+                <div className="w-1 h-4 bg-emerald-500 rounded-full" />
+                <h2 className="text-sm font-bold uppercase tracking-widest text-white">{t.derivativesOI}</h2>
+              </div>
+
+              {/* Row 1: Fear & Greed / Capital Flow / Large Orders */}
+              <div className="grid grid-cols-12 gap-6">
+                {fearGreedData && (
+                  <div className="col-span-12 lg:col-span-3">
+                    <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-4 h-full">
+                      <FearGreedGauge value={fearGreedData?.value ?? fearGreedData?.data ?? 0} language={language} />
+                    </div>
+                  </div>
+                )}
+                {capitalFlowData.length > 0 && (
+                  <div className="col-span-12 lg:col-span-6">
+                    <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-4 h-full">
+                      <CapitalFlowChart data={capitalFlowData} />
+                    </div>
+                  </div>
+                )}
+                {largeOrderData && (
+                  <div className="col-span-12 lg:col-span-3">
+                    <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-4 h-full">
+                      <LargeOrdersTicker orders={largeOrderData?.data || largeOrderData || []} language={language} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Row 2: Funding Rate Heatmap / Liquidation Map */}
+              <div className="grid grid-cols-12 gap-6">
+                {fundingRateData && (
+                  <div className="col-span-12 lg:col-span-7">
+                    <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-4 h-full">
+                      <FundingRateHeatmap data={fundingRateData} language={language} />
+                    </div>
+                  </div>
+                )}
+                {liquidationData.length > 0 && (
+                  <div className="col-span-12 lg:col-span-5">
+                    <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-4 h-full">
+                      <LiquidationMap data={liquidationData} language={language} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Row 3: Orderbook Heatmap */}
+              {orderbookData && (
+                <div className="bg-[#161A1E] border border-[#1F2226] rounded-2xl p-4">
+                  <OrderbookHeatmap data={orderbookData?.data || orderbookData || []} language={language} />
+                </div>
+              )}
             </section>
           </>
         ) : (

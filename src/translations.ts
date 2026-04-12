@@ -67,6 +67,7 @@ export const translations = {
     name: "Name",
     close: "Price",
     changePercent: "Change %",
+    change: "Change",
     volume: "Volume",
     amount: "Amount",
     tradeDate: "Trade Date",
@@ -119,14 +120,12 @@ export const translations = {
     marketCap: "Market Cap",
     summary: "Summary",
     totalStocks: "Total Stocks",
-    industryPassed: "Industry Passed",
+    industryPassed: "Industry",
     fundamentalPassed: "Fundamental Passed",
     liquidityPassed: "Liquidity Passed",
     technicalPassed: "Technical Passed",
     years: "Years",
     indexCode: "Index",
-    include: "Include",
-    exclude: "Exclude"
   },
   zh: {
     title: "量化视图",
@@ -158,7 +157,7 @@ export const translations = {
     syncing: "正在同步市场数据...",
     cryptoBoard: "B圈",
     asharesBoard: "A股",
-    smartMoneyTracker: "跟着“聪明钱”炒股",
+    smartMoneyTracker: '跟着"聪明钱"炒股',
     northboundFunds: "北向资金 (沪深港通)",
     mainFunds: "主力资金流向",
     netInflow: "净流入",
@@ -196,6 +195,7 @@ export const translations = {
     name: "名称",
     close: "现价",
     changePercent: "涨跌幅",
+    change: "涨跌幅",
     volume: "成交量",
     amount: "成交额",
     tradeDate: "交易日期",
@@ -248,14 +248,12 @@ export const translations = {
     marketCap: "市值",
     summary: "筛选统计",
     totalStocks: "全市场股票数",
-    industryPassed: "行业过滤后",
+    industryPassed: "行业通过",
     fundamentalPassed: "基本面通过",
     liquidityPassed: "流动性通过",
-    technicalPassed: "最终入选",
+    technicalPassed: "技术面通过",
     years: "连续年数",
     indexCode: "对比指数",
-    include: "包含",
-    exclude: "排除"
   }
 };
 
